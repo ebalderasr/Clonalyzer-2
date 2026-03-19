@@ -20,6 +20,10 @@ FIG_SIZE     = (9, 6)
 DPI          = 100
 X_RANGE      = (-10, 270)
 
+# Molar masses for pmol conversions (g/mol)
+MW_GLC = 180.16   # glucose
+MW_LAC = 90.08    # lactate / lactic acid
+
 PALETTE = ["#000000","#FF0066","#107F80","#F0E442",
            "#0072B2","#D55E00","#CC79A7","#999999"]
 
@@ -33,9 +37,11 @@ PHASE_STAT = "Stationary"
 PHASE_CLR  = {PHASE_EXP: "#0072B2", PHASE_STAT: "#D55E00"}
 
 # output column names
-MU       = "mu_per_h"
-QGLC     = "qGlc_pg_cell_day"
-QLAC     = "qLac_pg_cell_day"
+MU        = "mu_per_h"
+QGLC      = "qGlc_pg_cell_day"
+QLAC      = "qLac_pg_cell_day"
+QGLC_PMOL = "qGlc_pmol_cell_day"
+QLAC_PMOL = "qLac_pmol_cell_day"
 QP       = "qP_pg_cell_day"
 QGLN_H   = "qGln_pmol_cell_h"
 QGLN_D   = "qGln_pmol_cell_day"
@@ -61,14 +67,14 @@ TS_SPECS = [
     ("Gln_mM",   "Glutamine (mM)",           "06_Gln"),
     ("Glu_mM",   "Glutamate (mM)",           "07_Glu"),
     ("rP_mg_L",  "rP Titer (mg/L)",          "08_Product"),
-    (QGLC,       "qGlc (pg/cell/day)",       "09_qGlc"),
-    (QLAC,       "qLac (pg/cell/day)",       "10_qLac"),
+    (QGLC_PMOL,  "qGlc (pmol/cell/day)",     "09_qGlc"),
+    (QLAC_PMOL,  "qLac (pmol/cell/day)",     "10_qLac"),
     (QGLN_D,     "qGln (pmol/cell/day)",     "11_qGln"),
     (QGLU_D,     "qGlu (pmol/cell/day)",     "12_qGlu"),
     (QP,         "qP (pg/cell/day)",         "13_qP"),
     (Y_LG,       "Y Lac/Glc (g/g)",         "14_YLacGlc"),
     (Y_GQ,       "Y Glu/Gln (mol/mol)",     "15_YGluGln"),
-    (IVC_CUM,    "IVCC (cells·h)",           "16_IVCC"),
+    (IVCD_CUM,   "IVCD (cells·h/mL)",        "16_IVCD"),
     ("GFP_mean", "GFP intensity (A.U.)",     "17_GFP"),
     ("TMRM_mean","TMRM intensity (A.U.)",    "18_TMRM"),
     (DGFP,       "dGFP/dt (A.U./h)",         "19_dGFP_dt"),
@@ -76,9 +82,9 @@ TS_SPECS = [
 ]
 
 BAR_SPECS = [
-    ("mu_exp",        "μ exp (1/h)",              "03_Mu_Exp"),
-    ("qGlc_exp",      "qGlc exp (pg/cell/day)",   "09_qGlc_Exp"),
-    ("qLac_exp",      "qLac exp (pg/cell/day)",   "10_qLac_Exp"),
+    ("mu_exp",           "μ exp (1/h)",               "03_Mu_Exp"),
+    ("qGlc_pmol_exp",    "qGlc exp (pmol/cell/day)",  "09_qGlc_Exp"),
+    ("qLac_pmol_exp",    "qLac exp (pmol/cell/day)",  "10_qLac_Exp"),
     ("qP_exp",        "qP exp (pg/cell/day)",     "13_qP_Exp"),
     ("qGln_exp",      "qGln exp (pmol/cell/day)", "11_qGln_Exp"),
     ("qGlu_exp",      "qGlu exp (pmol/cell/day)", "12_qGlu_Exp"),
@@ -89,13 +95,13 @@ BAR_SPECS = [
 ]
 
 CORR_SPECS = [
-    (QP,    "GFP_mean",  "qP (pg/cell/day)",    "GFP (A.U.)",         "40_qP_vs_GFP"),
-    (QP,    "TMRM_mean", "qP (pg/cell/day)",    "TMRM (A.U.)",        "41_qP_vs_TMRM"),
-    ("GFP_mean","TMRM_mean","GFP (A.U.)",       "TMRM (A.U.)",        "42_GFP_vs_TMRM"),
-    (QGLC,  "TMRM_mean", "qGlc (pg/cell/day)", "TMRM (A.U.)",        "50_qGlc_vs_TMRM"),
-    (QP,    QGLC,        "qP (pg/cell/day)",   "qGlc (pg/cell/day)", "52_qP_vs_qGlc"),
-    (QLAC,  QGLC,        "qLac (pg/cell/day)", "qGlc (pg/cell/day)", "55_qLac_vs_qGlc"),
-    (QP,    DGFP,        "qP (pg/cell/day)",   "dGFP/dt (A.U./h)",   "60_qP_vs_dGFPdt"),
+    (QP,        "GFP_mean",  "qP (pg/cell/day)",      "GFP (A.U.)",          "40_qP_vs_GFP"),
+    (QP,        "TMRM_mean", "qP (pg/cell/day)",      "TMRM (A.U.)",         "41_qP_vs_TMRM"),
+    ("GFP_mean","TMRM_mean", "GFP (A.U.)",            "TMRM (A.U.)",         "42_GFP_vs_TMRM"),
+    (QGLC_PMOL, "TMRM_mean", "qGlc (pmol/cell/day)",  "TMRM (A.U.)",         "50_qGlc_vs_TMRM"),
+    (QP,        QGLC_PMOL,   "qP (pg/cell/day)",      "qGlc (pmol/cell/day)","52_qP_vs_qGlc"),
+    (QLAC_PMOL, QGLC_PMOL,   "qLac (pmol/cell/day)",  "qGlc (pmol/cell/day)","55_qLac_vs_qGlc"),
+    (QP,        DGFP,        "qP (pg/cell/day)",      "dGFP/dt (A.U./h)",    "60_qP_vs_dGFPdt"),
 ]
 
 
@@ -163,9 +169,9 @@ def _load(csv_text: str) -> pd.DataFrame:
 
 # ── Kinetics ───────────────────────────────────────────────────────────────────
 
-def _compute(df: pd.DataFrame, exp_end: float) -> pd.DataFrame:
+def _compute(df: pd.DataFrame, exp_start: float, exp_end: float) -> pd.DataFrame:
     df = df.copy()
-    out_cols = [MU,QGLC,QLAC,QP,QGLN_H,QGLN_D,QGLU_H,QGLU_D,
+    out_cols = [MU,QGLC,QLAC,QGLC_PMOL,QLAC_PMOL,QP,QGLN_H,QGLN_D,QGLU_H,QGLU_D,
                 Y_LG,Y_GQ,IVCD_INT,IVCD_CUM,IVC_INT,IVC_CUM]
     if _has_cyto(df):
         out_cols += [DGFP, DTMRM]
@@ -197,10 +203,14 @@ def _compute(df: pd.DataFrame, exp_end: float) -> pd.DataFrame:
                 continue
 
             dglc = rp["Glc_g_L"]*vol1 - rc["Glc_g_L"]*vol2
-            df.at[ic, QGLC] = dglc / dt / ntrap * PG_PER_G * H_PER_DAY
+            qglc_pg = dglc / dt / ntrap * PG_PER_G * H_PER_DAY
+            df.at[ic, QGLC]      = qglc_pg
+            df.at[ic, QGLC_PMOL] = qglc_pg / MW_GLC
 
             dlac = rc["Lac_g_L"]*vol2 - rp["Lac_g_L"]*vol1
-            df.at[ic, QLAC] = dlac / dt / ntrap * PG_PER_G * H_PER_DAY
+            qlac_pg = dlac / dt / ntrap * PG_PER_G * H_PER_DAY
+            df.at[ic, QLAC]      = qlac_pg
+            df.at[ic, QLAC_PMOL] = qlac_pg / MW_LAC
 
             p1 = rp["rP_mg_L"] if pd.notna(rp["rP_mg_L"]) else 0.0
             p2 = rc["rP_mg_L"] if pd.notna(rc["rP_mg_L"]) else 0.0
@@ -244,13 +254,16 @@ def _compute(df: pd.DataFrame, exp_end: float) -> pd.DataFrame:
                 if pd.notna(t1) and pd.notna(t2):
                     df.at[ic, DTMRM] = (t2-t1) / dt
 
-    df[PHASE] = np.where(df["t_hr"] <= exp_end, PHASE_EXP, PHASE_STAT)
+    df[PHASE] = np.where(
+        (df["t_hr"] >= exp_start) & (df["t_hr"] <= exp_end),
+        PHASE_EXP, PHASE_STAT
+    )
     return df
 
 
 def _summarise(df: pd.DataFrame) -> pd.DataFrame:
     exp = df[df[PHASE] == PHASE_EXP]
-    rate_map = [(QGLC,"qGlc_exp"),(QLAC,"qLac_exp"),(QP,"qP_exp"),
+    rate_map = [(QGLC_PMOL,"qGlc_pmol_exp"),(QLAC_PMOL,"qLac_pmol_exp"),(QP,"qP_exp"),
                 (QGLN_D,"qGln_exp"),(QGLU_D,"qGlu_exp"),
                 (Y_LG,"Y_Lac_Glc_exp"),(Y_GQ,"Y_Glu_Gln_exp")]
     if _has_cyto(df):
@@ -259,6 +272,7 @@ def _summarise(df: pd.DataFrame) -> pd.DataFrame:
     records = []
     for (clone, rep), grp in exp.groupby(["Clone","Rep"], sort=False):
         row = {"Clone": clone, "Rep": rep}
+        # μ_exp: first-to-last VCD within the exponential window
         vcd_v = grp["VCD"].dropna()
         if len(vcd_v) >= 2:
             t0 = grp.loc[vcd_v.index[0],  "t_hr"]
@@ -346,30 +360,31 @@ def _bars(summary, clones, pal):
     return out
 
 
-def _correlations(df):
+def _correlations(df, clones, pal):
     out = {}
-    if PHASE not in df.columns:
-        return out
     for xcol, ycol, xlabel, ylabel, fname in CORR_SPECS:
         if xcol not in df.columns or ycol not in df.columns:
             continue
-        sub = df[[xcol, ycol, PHASE]].dropna()
+        sub = df[[xcol, ycol, "Clone"]].dropna()
         if sub.empty:
             continue
         fig, ax = plt.subplots(figsize=FIG_SIZE)
-        for phase, color in PHASE_CLR.items():
-            pd_ = sub[sub[PHASE] == phase]
-            if pd_.empty:
+        for clone in clones:
+            cd = sub[sub["Clone"] == clone]
+            if cd.empty:
                 continue
-            ax.scatter(pd_[xcol], pd_[ycol], color=color, alpha=0.7, s=55, label=phase)
-            if len(pd_) >= 3:
-                sl, ic, r, _, _ = stats.linregress(pd_[xcol], pd_[ycol])
-                xf = np.linspace(pd_[xcol].min(), pd_[xcol].max(), 100)
-                ax.plot(xf, sl*xf+ic, color=color, lw=2,
-                        label=f"{phase} (R²={r**2:.2f})")
+            ax.scatter(cd[xcol], cd[ycol], color=pal[clone],
+                       alpha=0.75, s=55, label=clone)
+        # Single overall regression line
+        all_valid = sub.dropna(subset=[xcol, ycol])
+        if len(all_valid) >= 3:
+            sl, ic, r, _, _ = stats.linregress(all_valid[xcol], all_valid[ycol])
+            xf = np.linspace(all_valid[xcol].min(), all_valid[xcol].max(), 100)
+            ax.plot(xf, sl*xf+ic, color="#444444", lw=2, linestyle="--",
+                    label=f"All (R²={r**2:.2f})")
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
-        ax.legend(bbox_to_anchor=(1.02,1), loc="upper left", fontsize=10)
+        ax.legend(title="Clone", bbox_to_anchor=(1.02,1), loc="upper left", fontsize=10)
         fig.tight_layout()
         out[fname] = _to_b64(fig)
     return out
@@ -377,7 +392,7 @@ def _correlations(df):
 
 # ── Public entry point ─────────────────────────────────────────────────────────
 
-def run_analysis(csv_text, exp_phase_end=96.0, progress_cb=None):
+def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0, progress_cb=None):
     """
     Main function called from JavaScript via Pyodide.
 
@@ -397,7 +412,7 @@ def run_analysis(csv_text, exp_phase_end=96.0, progress_cb=None):
     df = _load(csv_text)
 
     cb("Computing kinetics…", 20)
-    df_kin  = _compute(df, float(exp_phase_end))
+    df_kin  = _compute(df, float(exp_phase_start), float(exp_phase_end))
     summary = _summarise(df_kin)
 
     clones = df_kin["Clone"].unique().tolist()
@@ -413,7 +428,7 @@ def run_analysis(csv_text, exp_phase_end=96.0, progress_cb=None):
     bars    = _bars(summary, clones, pal)
 
     cb("Generating correlation plots…", 88)
-    corr    = _correlations(df_kin)
+    corr    = _correlations(df_kin, clones, pal)
 
     cb("Done!", 100)
 

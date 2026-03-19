@@ -15,7 +15,7 @@ let elInitBar, elInitMsg, elInitSection;
 let elUploadSection, elDropZone, elFileInput;
 let elProcessSection, elProcessBar, elProcessMsg;
 let elResultsSection;
-let elExpPhaseInput;
+let elExpPhaseStartInput, elExpPhaseInput;
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -28,8 +28,9 @@ document.addEventListener("DOMContentLoaded", () => {
     elProcessSection = document.getElementById("process-section");
     elProcessBar     = document.getElementById("process-bar");
     elProcessMsg     = document.getElementById("process-msg");
-    elResultsSection = document.getElementById("results-section");
-    elExpPhaseInput  = document.getElementById("exp-phase-end");
+    elResultsSection     = document.getElementById("results-section");
+    elExpPhaseStartInput = document.getElementById("exp-phase-start");
+    elExpPhaseInput      = document.getElementById("exp-phase-end");
 
     setupDropZone();
     initPyodide();
@@ -101,16 +102,18 @@ async function handleFile(file) {
     setProcessProgress("Reading file…", 2);
 
     try {
-        const csvText     = await file.text();
-        const expPhaseEnd = parseFloat(elExpPhaseInput.value) || 96.0;
+        const csvText       = await file.text();
+        const expPhaseStart = parseFloat(elExpPhaseStartInput.value) || 0.0;
+        const expPhaseEnd   = parseFloat(elExpPhaseInput.value) || 96.0;
 
         // Pass progress callback from JS into Python
-        pyodide.globals.set("_progress_cb", (msg, pct) => setProcessProgress(msg, pct));
-        pyodide.globals.set("_csv_text",     csvText);
-        pyodide.globals.set("_exp_end",      expPhaseEnd);
+        pyodide.globals.set("_progress_cb",  (msg, pct) => setProcessProgress(msg, pct));
+        pyodide.globals.set("_csv_text",      csvText);
+        pyodide.globals.set("_exp_start",     expPhaseStart);
+        pyodide.globals.set("_exp_end",       expPhaseEnd);
 
         const pyResult = await pyodide.runPythonAsync(
-            `run_analysis(_csv_text, _exp_end, _progress_cb)`
+            `run_analysis(_csv_text, _exp_start, _exp_end, _progress_cb)`
         );
 
         // Convert Python proxy → JS object (nested)

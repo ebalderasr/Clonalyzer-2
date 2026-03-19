@@ -241,12 +241,16 @@
       </div>
 
       <!-- Settings -->
-      <div class="settings-row d-flex align-items-center gap-3 mb-4">
-        <label for="exp-phase-end">Exponential phase ends at</label>
+      <div class="settings-row d-flex flex-wrap align-items-center gap-3 mb-4">
+        <label>Exponential phase:</label>
+        <input id="exp-phase-start"
+               type="number" class="form-control form-control-sm"
+               value="0" min="0" max="9999" step="1" />
+        <span class="text-muted small">h  to</span>
         <input id="exp-phase-end"
                type="number" class="form-control form-control-sm"
                value="96" min="1" max="9999" step="1" />
-        <span class="text-muted small">hours</span>
+        <span class="text-muted small">h</span>
       </div>
 
       <!-- Drop zone -->
@@ -594,16 +598,20 @@
           <!-- 5. Phase classification -->
           <h5>5. Phase classification</h5>
           <p>
-            Each row is labeled based on culture time:
+            Each row is labeled based on culture time using two configurable boundaries:
           </p>
           <ul>
-            <li><strong>Exponential phase</strong> — $t \leq t_{\text{exp}}$ (default 96 h, configurable)</li>
-            <li><strong>Stationary phase</strong> — $t > t_{\text{exp}}$</li>
+            <li><strong>Exponential phase</strong> — $t_{\text{start}} \leq t \leq t_{\text{end}}$ (default: 0 – 96 h)</li>
+            <li><strong>Stationary phase</strong> — all other timepoints</li>
           </ul>
           <p>
-            This boundary is used to compute per-clone exponential-phase summary
-            statistics (mean of interval rates over all replicates and timepoints
-            within the exponential window) displayed in the bar-chart tab.
+            Both limits are set in the upload form before running the analysis.
+            This allows excluding the inoculation lag period from μ and rate calculations
+            by raising <em>t</em><sub>start</sub>, or capturing only the peak-productivity
+            window by narrowing the window.
+            The exponential-phase summary statistics (bar-chart tab) are computed as the
+            mean of interval rates across all replicates and timepoints strictly within
+            the defined window.
           </p>
 
         </div><!-- /modal-body -->
