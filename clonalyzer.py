@@ -321,12 +321,11 @@ def _lines(df, clones, pal):
             sub = s[s["Clone"] == c].sort_values("t_hr")
             if sub.empty:
                 continue
-            color = pal[c]
-            ax.plot(sub["t_hr"], sub["mean"], marker="o", color=color, label=c)
-            ax.fill_between(sub["t_hr"],
-                            sub["mean"] - sub["std"].fillna(0),
-                            sub["mean"] + sub["std"].fillna(0),
-                            color=color, alpha=0.15)
+            ax.errorbar(sub["t_hr"], sub["mean"],
+                        yerr=sub["std"].fillna(0),
+                        color=pal[c], marker="o", markersize=6,
+                        linewidth=1.8, capsize=4, capthick=1.5,
+                        elinewidth=1.2, label=c)
         ax.set_xlabel("Culture time (h)")
         ax.set_ylabel(ylabel)
         ax.set_xlim(X_RANGE)
