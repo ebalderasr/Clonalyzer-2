@@ -15,7 +15,7 @@ let elInitBar, elInitMsg, elInitSection;
 let elUploadSection, elDropZone, elFileInput;
 let elProcessSection, elProcessBar, elProcessMsg;
 let elResultsSection;
-let elExpPhaseStartInput, elExpPhaseInput;
+let elExpPhaseStartInput, elExpPhaseInput, elSkipFirstRow;
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -31,6 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
     elResultsSection     = document.getElementById("results-section");
     elExpPhaseStartInput = document.getElementById("exp-phase-start");
     elExpPhaseInput      = document.getElementById("exp-phase-end");
+    elSkipFirstRow       = document.getElementById("skip-first-row");
 
     setupDropZone();
     initPyodide();
@@ -105,15 +106,17 @@ async function handleFile(file) {
         const csvText       = await file.text();
         const expPhaseStart = parseFloat(elExpPhaseStartInput.value) || 0.0;
         const expPhaseEnd   = parseFloat(elExpPhaseInput.value) || 96.0;
+        const skipFirstRow  = elSkipFirstRow.checked;
 
         // Pass progress callback from JS into Python
-        pyodide.globals.set("_progress_cb",  (msg, pct) => setProcessProgress(msg, pct));
-        pyodide.globals.set("_csv_text",      csvText);
-        pyodide.globals.set("_exp_start",     expPhaseStart);
-        pyodide.globals.set("_exp_end",       expPhaseEnd);
+        pyodide.globals.set("_progress_cb",   (msg, pct) => setProcessProgress(msg, pct));
+        pyodide.globals.set("_csv_text",       csvText);
+        pyodide.globals.set("_exp_start",      expPhaseStart);
+        pyodide.globals.set("_exp_end",        expPhaseEnd);
+        pyodide.globals.set("_skip_first_row", skipFirstRow);
 
         const pyResult = await pyodide.runPythonAsync(
-            `run_analysis(_csv_text, _exp_start, _exp_end, _progress_cb)`
+            `run_analysis(_csv_text, _exp_start, _exp_end, _skip_first_row, _progress_cb)`
         );
 
         // Convert Python proxy → JS object (nested)

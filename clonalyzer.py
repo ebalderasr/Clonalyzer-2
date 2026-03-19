@@ -136,8 +136,9 @@ def _has_cyto(df):
 
 # ── Loader ─────────────────────────────────────────────────────────────────────
 
-def _load(csv_text: str) -> pd.DataFrame:
-    df = pd.read_csv(io.StringIO(csv_text), header=1)
+def _load(csv_text: str, skip_first_row: bool = True) -> pd.DataFrame:
+    header_row = 1 if skip_first_row else 0
+    df = pd.read_csv(io.StringIO(csv_text), header=header_row)
 
     missing = [c for c in REQUIRED_COLS if c not in df.columns]
     if missing:
@@ -412,7 +413,8 @@ def _correlations(df, clones, pal):
 
 # ── Public entry point ─────────────────────────────────────────────────────────
 
-def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0, progress_cb=None):
+def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
+                 skip_first_row=True, progress_cb=None):
     """
     Main function called from JavaScript via Pyodide.
 
@@ -429,7 +431,7 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0, progress_cb=
     _setup_mpl()
 
     cb("Loading and cleaning data…", 5)
-    df = _load(csv_text)
+    df = _load(csv_text, bool(skip_first_row))
 
     cb("Computing kinetics…", 20)
     df_kin  = _compute(df, float(exp_phase_start), float(exp_phase_end))
