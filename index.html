@@ -8,6 +8,14 @@
   <!-- Bootstrap 5 -->
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+  <!-- MathJax (equation rendering) -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [["$","$"],["\\(","\\)"]] },
+      options: { skipHtmlTags: ["script","noscript","style","textarea"] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
   <!-- Pyodide -->
   <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
   <!-- JSZip + FileSaver -->
@@ -143,6 +151,26 @@
     /* ── Settings row ── */
     .settings-row label { font-size: .85rem; color: var(--muted); }
     .settings-row input { max-width: 110px; font-size: .9rem; }
+
+    /* ── Methods modal ── */
+    #methodsModal .modal-dialog { max-width: 780px; }
+    #methodsModal .modal-body   { max-height: 78vh; overflow-y: auto; }
+    #methodsModal h5  { color: var(--primary); font-weight: 700; margin-top: 1.6rem; }
+    #methodsModal h6  { font-weight: 600; margin-top: 1.1rem; }
+    #methodsModal p,
+    #methodsModal li  { font-size: .93rem; line-height: 1.7; }
+    #methodsModal .eq-block {
+      background: #f8fafc;
+      border-left: 3px solid var(--primary);
+      border-radius: 4px;
+      padding: .6rem 1rem;
+      margin: .6rem 0;
+      overflow-x: auto;
+    }
+    #methodsModal .tag-batch    { background:#dcfce7; color:#166534; padding:2px 8px; border-radius:99px; font-size:.8rem; }
+    #methodsModal .tag-fedbatch { background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:99px; font-size:.8rem; }
+    #methodsModal table { font-size: .88rem; }
+    #methodsModal code { background:#f1f5f9; padding: 2px 5px; border-radius:4px; }
   </style>
 </head>
 
@@ -155,11 +183,17 @@
         <h1>⚗ Clonalyzer</h1>
         <span class="subtitle">CHO fed-batch culture kinetics analysis</span>
       </div>
-      <a href="https://github.com/ebalderasr/Clonalyzer-2"
-         target="_blank"
-         class="btn btn-outline-secondary btn-sm">
-        GitHub
-      </a>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary btn-sm"
+                data-bs-toggle="modal" data-bs-target="#methodsModal">
+          Methods
+        </button>
+        <a href="https://github.com/ebalderasr/Clonalyzer-2"
+           target="_blank"
+           class="btn btn-outline-secondary btn-sm">
+          GitHub
+        </a>
+      </div>
     </div>
   </header>
 
@@ -326,8 +360,271 @@
     </div>
   </footer>
 
+  <!-- ── Methods modal ───────────────────────────────────────────────────────── -->
+  <div class="modal fade" id="methodsModal" tabindex="-1"
+       aria-labelledby="methodsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h4 class="modal-title fw-bold" id="methodsModalLabel">Methods</h4>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body px-4 py-3">
+
+          <!-- 1. Overview -->
+          <h5>1. Overview</h5>
+          <p>
+            Clonalyzer processes time-series measurements from mammalian cell culture
+            experiments and computes specific kinetic rates using a mass-balance approach
+            with trapezoid integration. It supports both <span class="tag-batch">batch</span>
+            and <span class="tag-fedbatch">fed-batch</span> modes through the
+            <code>is_post_feed</code> flag.
+          </p>
+
+          <!-- 2. Data cleaning -->
+          <h5>2. Data cleaning</h5>
+
+          <h6>2.1 Loading and type coercion</h6>
+          <p>
+            The CSV has two header rows: the first contains human-readable labels
+            (ignored) and the second contains the machine column names used internally.
+            All numeric columns are coerced with <code>pd.to_numeric(errors='coerce')</code>,
+            which converts any non-parseable cell (empty, text artefacts) to
+            <code>NaN</code> instead of raising an error. European decimal commas
+            (<em>e.g.</em> <code>1,5</code>) are replaced with periods before coercion.
+          </p>
+
+          <h6>2.2 Boolean parsing of <code>is_post_feed</code></h6>
+          <p>
+            The column accepts <code>TRUE</code> / <code>FALSE</code> (case-insensitive)
+            or <code>1</code> / <code>0</code>. Any other value is treated as
+            <code>False</code>.
+          </p>
+
+          <h6>2.3 Cytometry forward-fill</h6>
+          <p>
+            GFP and TMRM intensities are <em>per-cell</em> measurements. When a feed
+            is performed, the medium volume increases but the cells are the same — so
+            the fluorescence intensity is unaffected by dilution. To avoid spurious
+            <code>NaN</code> values at post-feed rows, the last valid pre-feed reading
+            within each Clone × Replicate group is propagated forward
+            (<code>ffill</code>) to the corresponding post-feed row.
+          </p>
+
+          <h6>2.4 Sorting</h6>
+          <p>
+            The DataFrame is sorted by <strong>Clone → Rep → t_hr</strong> to guarantee
+            that consecutive rows within a group are chronologically ordered before any
+            interval calculation is performed.
+          </p>
+
+          <!-- 3. Batch vs fed-batch -->
+          <h5>3. Batch vs fed-batch: the <code>is_post_feed</code> logic</h5>
+
+          <p>
+            In a <span class="tag-batch">batch</span> culture the volume does not change,
+            so all rows have <code>is_post_feed = FALSE</code> and every consecutive pair
+            of timepoints is used for calculations.
+          </p>
+          <p>
+            In a <span class="tag-fedbatch">fed-batch</span> culture, a bolus of
+            concentrated medium is added at one or more timepoints. The cell counter is
+            typically run <em>before</em> and <em>after</em> each feed at the same
+            nominal time, producing two rows at the same <code>t_hr</code>:
+          </p>
+
+          <div class="table-responsive mb-2">
+            <table class="table table-sm table-bordered align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>t_hr</th><th>is_post_feed</th><th>VCD</th>
+                  <th>Vol_mL</th><th>Glc_g_L</th><th>Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>72</td><td><code>FALSE</code></td>
+                  <td>2.1×10⁶</td><td>18.0</td><td>3.2</td>
+                  <td class="text-muted small">Sample taken <em>before</em> adding feed</td>
+                </tr>
+                <tr class="table-info">
+                  <td>72</td><td><code>TRUE</code></td>
+                  <td>1.8×10⁶</td><td>21.0</td><td>5.5</td>
+                  <td class="text-muted small">Sample taken <em>after</em> adding feed — diluted concentrations, larger volume</td>
+                </tr>
+                <tr>
+                  <td>96</td><td><code>FALSE</code></td>
+                  <td>3.5×10⁶</td><td>19.8</td><td>4.1</td>
+                  <td class="text-muted small">Next regular sample</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            <strong>Why skip the pre→post interval?</strong> The apparent change in
+            glucose (or any diluted metabolite) between the pre-feed and post-feed rows
+            at <em>t</em> = 72 h is caused entirely by medium addition, not by cellular
+            activity. Including this interval would overestimate consumption or production
+            rates. Clonalyzer therefore <strong>skips any interval where the current row
+            has <code>is_post_feed = TRUE</code> and the previous row has
+            <code>is_post_feed = FALSE</code></strong>.
+          </p>
+          <p>
+            All other transitions — including post-feed → next pre-feed — are used
+            normally, because the volume accounting ($S \times V$) in the mass balance
+            corrects for any remaining dilution effect.
+          </p>
+
+          <!-- 4. Kinetic calculations -->
+          <h5>4. Kinetic calculations</h5>
+
+          <h6>4.1 Trapezoid average cell count</h6>
+          <p>
+            All specific rates are normalized by the average number of viable cells
+            present during the interval. Clonalyzer uses a trapezoid approximation,
+            which is more accurate than using a single endpoint:
+          </p>
+          <div class="eq-block">
+            $$\bar{N}^{\text{trap}} = \frac{1}{2}\left(VCD_1 \cdot V_1 + VCD_2 \cdot V_2\right) \times 10^3$$
+          </div>
+          <p>
+            where $VCD$ is in cells/mL, $V$ is in mL, and the factor $10^3$ converts
+            mL to L so that $\bar{N}^{\text{trap}}$ is in <strong>cells</strong>.
+          </p>
+
+          <h6>4.2 Specific growth rate (μ)</h6>
+          <div class="eq-block">
+            $$\mu = \frac{\ln(VCD_2 / VCD_1)}{\Delta t} \quad [\text{h}^{-1}]$$
+          </div>
+          <p>
+            Calculated only when both $VCD$ values are positive. For a batch culture this
+            represents the instantaneous growth rate; for fed-batch it is computed on
+            the same intervals (skipping the feed dilution step).
+          </p>
+
+          <h6>4.3 Specific metabolite rates</h6>
+          <p>
+            The general mass-balance for any metabolite $S$ (concentration in g/L or mM,
+            volume in mL) is:
+          </p>
+          <div class="eq-block">
+            $$q_S = \frac{\Delta(S \cdot V)}{\Delta t \cdot \bar{N}^{\text{trap}}}$$
+          </div>
+          <p>
+            The sign convention is: <strong>positive = consumption</strong> (glucose,
+            glutamine), <strong>positive = production</strong> (lactate, glutamate,
+            recombinant protein). The specific rates computed are:
+          </p>
+
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+              <thead class="table-light">
+                <tr>
+                  <th>Rate</th><th>Formula</th><th>Units</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>qGlc</td>
+                  <td>$(Glc_1 V_1 - Glc_2 V_2)\,/\,\Delta t\,/\,\bar{N}$</td>
+                  <td>pg/cell/day</td>
+                </tr>
+                <tr>
+                  <td>qLac</td>
+                  <td>$(Lac_2 V_2 - Lac_1 V_1)\,/\,\Delta t\,/\,\bar{N}$</td>
+                  <td>pg/cell/day</td>
+                </tr>
+                <tr>
+                  <td>qP</td>
+                  <td>$(P_2 V_2 - P_1 V_1)\,/\,\Delta t\,/\,\bar{N}$</td>
+                  <td>pg/cell/day</td>
+                </tr>
+                <tr>
+                  <td>qGln</td>
+                  <td>$(Gln_1 V_1 - Gln_2 V_2)\,/\,\Delta t\,/\,\bar{N}$</td>
+                  <td>pmol/cell/h · pmol/cell/day</td>
+                </tr>
+                <tr>
+                  <td>qGlu</td>
+                  <td>$(Glu_2 V_2 - Glu_1 V_1)\,/\,\Delta t\,/\,\bar{N}$</td>
+                  <td>pmol/cell/h · pmol/cell/day</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h6>4.4 Metabolic yields</h6>
+          <div class="eq-block">
+            $$Y_{Lac/Glc} = \frac{\Delta Lac \cdot V}{\Delta Glc \cdot V} \quad [\text{g/g}]
+            \qquad
+            Y_{Glu/Gln} = \frac{\Delta Glu \cdot V}{\Delta Gln \cdot V} \quad [\text{mol/mol}]$$
+          </div>
+          <p>
+            Yields are computed only when the denominator (consumed substrate) is
+            positive to avoid division by zero.
+          </p>
+
+          <h6>4.5 Integral viable cell density and cell count (IVCD / IVCC)</h6>
+          <p>
+            Cumulative cell exposure, used for productivity normalization:
+          </p>
+          <div class="eq-block">
+            $$IVCD_{\text{interval}} = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t \quad [\text{cells·h/mL}]$$
+            $$IVCC_{\text{interval}} = \bar{N}^{\text{trap}} \cdot \Delta t \quad [\text{cells·h}]$$
+          </div>
+          <p>
+            Both are summed cumulatively across all intervals within each
+            Clone × Replicate track.
+          </p>
+
+          <h6>4.6 Fluorescence rates (optional)</h6>
+          <p>
+            When GFP and TMRM columns are present, the rate of change is computed as
+            a simple finite difference:
+          </p>
+          <div class="eq-block">
+            $$\frac{dGFP}{dt} = \frac{GFP_2 - GFP_1}{\Delta t} \quad [\text{A.U./h}]
+            \qquad
+            \frac{dTMRM}{dt} = \frac{TMRM_2 - TMRM_1}{\Delta t} \quad [\text{A.U./h}]$$
+          </div>
+
+          <!-- 5. Phase classification -->
+          <h5>5. Phase classification</h5>
+          <p>
+            Each row is labeled based on culture time:
+          </p>
+          <ul>
+            <li><strong>Exponential phase</strong> — $t \leq t_{\text{exp}}$ (default 96 h, configurable)</li>
+            <li><strong>Stationary phase</strong> — $t > t_{\text{exp}}$</li>
+          </ul>
+          <p>
+            This boundary is used to compute per-clone exponential-phase summary
+            statistics (mean of interval rates over all replicates and timepoints
+            within the exponential window) displayed in the bar-chart tab.
+          </p>
+
+        </div><!-- /modal-body -->
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary"
+                  data-bs-dismiss="modal">Close</button>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /methodsModal -->
+
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Trigger MathJax re-render when modal opens -->
+  <script>
+    document.getElementById("methodsModal").addEventListener("shown.bs.modal", () => {
+      if (window.MathJax) MathJax.typesetPromise();
+    });
+  </script>
   <!-- App -->
   <script src="app.js"></script>
 
