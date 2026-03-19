@@ -361,54 +361,105 @@ def _bars(summary, clones, pal):
     return out
 
 
-def _correlations(df, clones, pal):
-    """
-    One scatter + regression trace per clone × phase combination.
-    Color  = clone (from palette)
-    Marker = phase  (circle = Exponential, triangle = Stationary)
-    """
-    # phase → (marker, linestyle, short label)
-    PHASE_STYLE = {
-        PHASE_EXP:  ("o", "-",  "Exp"),
-        PHASE_STAT: ("^", "--", "Stat"),
-    }
+# phase → (marker, linestyle, short label)
+_PHASE_STYLE = {
+    PHASE_EXP:  ("o", "-",  "Exp"),
+    PHASE_STAT: ("^", "--", "Stat"),
+}
 
-    out = {}
+def _make_corr_plot(df, xcol, ycol, xlabel, ylabel, clones, pal):
+    """
+    Core correlation plot: color = clone, marker/linestyle = phase.
+    One scatter + regression line per clone × phase combination.
+    Returns base64 PNG string, or None if no data.
+    """
     if PHASE not in df.columns:
-        return out
+        return None
+    sub = df[[xcol, ycol, "Clone", PHASE]].dropna()
+    if sub.empty:
+        return None
 
+    fig, ax = plt.subplots(figsize=FIG_SIZE)
+
+    for clone in clones:
+        for phase, (marker, ls, short) in _PHASE_STYLE.items():
+            cd = sub[(sub["Clone"] == clone) & (sub[PHASE] == phase)]
+            if cd.empty:
+                continue
+            ax.scatter(cd[xcol], cd[ycol],
+                       color=pal[clone], marker=marker,
+                       alpha=0.80, s=60, label=f"{clone} – {short}", zorder=3)
+            if len(cd) >= 3:
+                sl, ic, r, _, _ = stats.linregress(cd[xcol], cd[ycol])
+                xf = np.linspace(cd[xcol].min(), cd[xcol].max(), 100)
+                ax.plot(xf, sl*xf+ic,
+                        color=pal[clone], linestyle=ls, linewidth=1.8,
+                        label=f"R²={r**2:.2f}")
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left",
+              fontsize=9, title="Clone – Phase")
+    fig.tight_layout()
+    return _to_b64(fig)
+
+
+def _correlations(df, clones, pal):
+    out = {}
     for xcol, ycol, xlabel, ylabel, fname in CORR_SPECS:
         if xcol not in df.columns or ycol not in df.columns:
             continue
-        sub = df[[xcol, ycol, "Clone", PHASE]].dropna()
-        if sub.empty:
-            continue
-
-        fig, ax = plt.subplots(figsize=FIG_SIZE)
-
-        for clone in clones:
-            for phase, (marker, ls, short) in PHASE_STYLE.items():
-                cd = sub[(sub["Clone"] == clone) & (sub[PHASE] == phase)]
-                if cd.empty:
-                    continue
-                label = f"{clone} – {short}"
-                ax.scatter(cd[xcol], cd[ycol],
-                           color=pal[clone], marker=marker,
-                           alpha=0.80, s=60, label=label, zorder=3)
-                if len(cd) >= 3:
-                    sl, ic, r, _, _ = stats.linregress(cd[xcol], cd[ycol])
-                    xf = np.linspace(cd[xcol].min(), cd[xcol].max(), 100)
-                    ax.plot(xf, sl*xf+ic,
-                            color=pal[clone], linestyle=ls, linewidth=1.8,
-                            label=f"R²={r**2:.2f}")
-
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left",
-                  fontsize=9, title="Clone – Phase")
-        fig.tight_layout()
-        out[fname] = _to_b64(fig)
+        b64 = _make_corr_plot(df, xcol, ycol, xlabel, ylabel, clones, pal)
+        if b64:
+            out[fname] = b64
     return out
+
+
+# ── Column catalogue for custom correlations ───────────────────────────────────
+
+# (display label, internal column name)
+CUSTOM_CORR_COLS = [
+    ("VCD (cells/mL)",           "VCD"),
+    ("Viability (%)",            "Viab_pct"),
+    ("μ (1/h)",                  MU),
+    ("Glucose (g/L)",            "Glc_g_L"),
+    ("Lactate (g/L)",            "Lac_g_L"),
+    ("Glutamine (mM)",           "Gln_mM"),
+    ("Glutamate (mM)",           "Glu_mM"),
+    ("rP Titer (mg/L)",          "rP_mg_L"),
+    ("qGlc (pmol/cell/day)",     QGLC_PMOL),
+    ("qLac (pmol/cell/day)",     QLAC_PMOL),
+    ("qGln (pmol/cell/day)",     QGLN_D),
+    ("qGlu (pmol/cell/day)",     QGLU_D),
+    ("qP (pg/cell/day)",         QP),
+    ("Y Lac/Glc (g/g)",          Y_LG),
+    ("Y Glu/Gln (mol/mol)",      Y_GQ),
+    ("IVCD (cells·h/mL)",        IVCD_CUM),
+    ("GFP intensity (A.U.)",     "GFP_mean"),
+    ("TMRM intensity (A.U.)",    "TMRM_mean"),
+    ("dGFP/dt (A.U./h)",         DGFP),
+    ("dTMRM/dt (A.U./h)",        DTMRM),
+]
+
+# ── Analysis state (persists between run_analysis and make_custom_correlation) ─
+_state = {}
+
+
+def make_custom_correlation(xcol, ycol):
+    """
+    Generate a single custom correlation plot using the last loaded dataset.
+    Called from JavaScript after run_analysis has been executed.
+    Returns base64 PNG string.
+    """
+    if not _state:
+        raise RuntimeError("No analysis loaded. Run run_analysis() first.")
+    label_map = {col: label for label, col in CUSTOM_CORR_COLS}
+    xlabel = label_map.get(xcol, xcol)
+    ylabel = label_map.get(ycol, ycol)
+    return _make_corr_plot(
+        _state["df"], xcol, ycol, xlabel, ylabel,
+        _state["clones"], _state["pal"],
+    ) or ""
 
 
 # ── Public entry point ─────────────────────────────────────────────────────────
@@ -440,6 +491,16 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
     clones = df_kin["Clone"].unique().tolist()
     pal    = _palette(clones)
 
+    # Persist state for on-demand custom correlations
+    _state.clear()
+    _state.update({"df": df_kin, "clones": clones, "pal": pal})
+
+    # Available columns for custom correlation selectors
+    avail_cols = [
+        [label, col] for label, col in CUSTOM_CORR_COLS
+        if col in df_kin.columns and not df_kin[col].isna().all()
+    ]
+
     cb("Generating scatter plots…", 35)
     scatter = _scatter(df_kin, clones, pal)
 
@@ -463,6 +524,7 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
             "clones":       clones,
             "has_cyto":     bool(_has_cyto(df_kin)),
         },
+        "avail_cols":    avail_cols,
         "processed_csv": df_kin.to_csv(index=False),
         "summary_csv":   summary.to_csv(index=False),
         "plots": {

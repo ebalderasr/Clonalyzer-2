@@ -154,6 +154,10 @@ function displayResults(r) {
     renderPlotTab("tab-correlations", r.plots.correlations, "Correlations");
     // Activate first tab
     document.querySelector("#plot-tabs .nav-link")?.click();
+    // Populate custom correlation selectors
+    populateCustomCorrSelects(r.avail_cols || []);
+    // Clear previous custom plots
+    document.getElementById("custom-corr-gallery").innerHTML = "";
 }
 
 function renderInfoCards(info) {
@@ -267,6 +271,81 @@ function analyzeAnother() {
     hide(elResultsSection);
     show(elUploadSection);
     elUploadSection.scrollIntoView({ behavior: "smooth" });
+}
+
+// ── Custom correlations ────────────────────────────────────────────────────────
+function populateCustomCorrSelects(availCols) {
+    const xSel = document.getElementById("custom-x");
+    const ySel = document.getElementById("custom-y");
+    xSel.innerHTML = "";
+    ySel.innerHTML = "";
+    for (const [label, col] of availCols) {
+        const opt = (sel, selected) => {
+            const o = document.createElement("option");
+            o.value = col;
+            o.textContent = label;
+            o.selected = selected;
+            sel.appendChild(o);
+        };
+        opt(xSel, false);
+        opt(ySel, false);
+    }
+    // Different defaults so the first plot is meaningful
+    if (xSel.options.length > 0) xSel.selectedIndex = 0;
+    if (ySel.options.length > 1) ySel.selectedIndex = 1;
+}
+
+async function generateCustomCorr() {
+    const xSel = document.getElementById("custom-x");
+    const ySel = document.getElementById("custom-y");
+    const btn  = document.getElementById("btn-custom-corr");
+    const xcol = xSel.value;
+    const ycol = ySel.value;
+    const xlabel = xSel.options[xSel.selectedIndex].text;
+    const ylabel = ySel.options[ySel.selectedIndex].text;
+
+    if (!xcol || !ycol) return;
+
+    btn.disabled    = true;
+    btn.textContent = "Generating…";
+
+    try {
+        pyodide.globals.set("_xcol", xcol);
+        pyodide.globals.set("_ycol", ycol);
+        const b64 = await pyodide.runPythonAsync(
+            `make_custom_correlation(_xcol, _ycol)`
+        );
+        if (b64) addCustomCorrPlot(xcol, ycol, xlabel, ylabel, b64);
+        else alert("Not enough data for this combination.");
+    } catch (err) {
+        alert("Error: " + err.message);
+        console.error(err);
+    } finally {
+        btn.disabled    = false;
+        btn.textContent = "Generate plot";
+    }
+}
+
+function addCustomCorrPlot(xcol, ycol, xlabel, ylabel, b64) {
+    const gallery = document.getElementById("custom-corr-gallery");
+    const id  = `cc-${Date.now()}`;
+    const div = document.createElement("div");
+    div.className = "col-12 col-lg-6 mb-4";
+    div.id = id;
+    div.innerHTML = `
+        <div class="card shadow-sm h-100">
+            <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center">
+                <span class="small text-muted fw-semibold">${xlabel} vs ${ylabel}</span>
+                <button class="btn btn-sm btn-outline-danger py-0 px-2 lh-1"
+                        onclick="document.getElementById('${id}').remove()"
+                        title="Remove">✕</button>
+            </div>
+            <div class="card-body p-2 text-center">
+                <img src="data:image/png;base64,${b64}"
+                     class="img-fluid plot-img" alt="${xlabel} vs ${ylabel}">
+            </div>
+        </div>`;
+    gallery.prepend(div);   // newest plots appear first
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
