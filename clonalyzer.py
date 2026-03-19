@@ -57,28 +57,28 @@ DGFP     = "dGFP_dt"
 DTMRM    = "dTMRM_dt"
 PHASE    = "Fase_Cultivo"
 
-# plot specs: (column, y-label, filename-stem)
+# plot specs: (column, y-label, filename-stem, ylim or None)
 TS_SPECS = [
-    ("VCD",      "VCD (cells/mL)",          "01_VCD"),
-    ("Viab_pct", "Viability (%)",            "02_Viability"),
-    (MU,         "μ (1/h)",                  "03_Mu"),
-    ("Glc_g_L",  "Glucose (g/L)",            "04_Glc"),
-    ("Lac_g_L",  "Lactate (g/L)",            "05_Lac"),
-    ("Gln_mM",   "Glutamine (mM)",           "06_Gln"),
-    ("Glu_mM",   "Glutamate (mM)",           "07_Glu"),
-    ("rP_mg_L",  "rP Titer (mg/L)",          "08_Product"),
-    (QGLC_PMOL,  "qGlc (pmol/cell/day)",     "09_qGlc"),
-    (QLAC_PMOL,  "qLac (pmol/cell/day)",     "10_qLac"),
-    (QGLN_D,     "qGln (pmol/cell/day)",     "11_qGln"),
-    (QGLU_D,     "qGlu (pmol/cell/day)",     "12_qGlu"),
-    (QP,         "qP (pg/cell/day)",         "13_qP"),
-    (Y_LG,       "Y Lac/Glc (g/g)",         "14_YLacGlc"),
-    (Y_GQ,       "Y Glu/Gln (mol/mol)",     "15_YGluGln"),
-    (IVCD_CUM,   "IVCD (cells·h/mL)",        "16_IVCD"),
-    ("GFP_mean", "GFP intensity (A.U.)",     "17_GFP"),
-    ("TMRM_mean","TMRM intensity (A.U.)",    "18_TMRM"),
-    (DGFP,       "dGFP/dt (A.U./h)",         "19_dGFP_dt"),
-    (DTMRM,      "dTMRM/dt (A.U./h)",        "20_dTMRM_dt"),
+    ("VCD",      "VCD (cells/mL)",          "01_VCD",        None),
+    ("Viab_pct", "Viability (%)",            "02_Viability",  (0, 100)),
+    (MU,         "μ (1/h)",                  "03_Mu",         None),
+    ("Glc_g_L",  "Glucose (g/L)",            "04_Glc",        None),
+    ("Lac_g_L",  "Lactate (g/L)",            "05_Lac",        None),
+    ("Gln_mM",   "Glutamine (mM)",           "06_Gln",        None),
+    ("Glu_mM",   "Glutamate (mM)",           "07_Glu",        None),
+    ("rP_mg_L",  "rP Titer (mg/L)",          "08_Product",    None),
+    (QGLC_PMOL,  "qGlc (pmol/cell/day)",     "09_qGlc",       None),
+    (QLAC_PMOL,  "qLac (pmol/cell/day)",     "10_qLac",       None),
+    (QGLN_D,     "qGln (pmol/cell/day)",     "11_qGln",       None),
+    (QGLU_D,     "qGlu (pmol/cell/day)",     "12_qGlu",       None),
+    (QP,         "qP (pg/cell/day)",         "13_qP",         None),
+    (Y_LG,       "Y Lac/Glc (g/g)",         "14_YLacGlc",    None),
+    (Y_GQ,       "Y Glu/Gln (mol/mol)",     "15_YGluGln",    None),
+    (IVCD_CUM,   "IVCD (cells·h/mL)",        "16_IVCD",       None),
+    ("GFP_mean", "GFP intensity (A.U.)",     "17_GFP",        None),
+    ("TMRM_mean","TMRM intensity (A.U.)",    "18_TMRM",       None),
+    (DGFP,       "dGFP/dt (A.U./h)",         "19_dGFP_dt",    None),
+    (DTMRM,      "dTMRM/dt (A.U./h)",        "20_dTMRM_dt",   None),
 ]
 
 BAR_SPECS = [
@@ -292,7 +292,7 @@ def _summarise(df: pd.DataFrame) -> pd.DataFrame:
 
 def _scatter(df, clones, pal):
     out = {}
-    for col, ylabel, fname in TS_SPECS:
+    for col, ylabel, fname, ylim in TS_SPECS:
         if col not in df.columns or df[col].isna().all():
             continue
         fig, ax = plt.subplots(figsize=FIG_SIZE)
@@ -302,6 +302,8 @@ def _scatter(df, clones, pal):
         ax.set_xlabel("Culture time (h)")
         ax.set_ylabel(ylabel)
         ax.set_xlim(X_RANGE)
+        if ylim is not None:
+            ax.set_ylim(ylim)
         ax.legend(title="Clone", bbox_to_anchor=(1.02,1), loc="upper left")
         fig.tight_layout()
         out[fname] = _to_b64(fig)
@@ -311,7 +313,7 @@ def _scatter(df, clones, pal):
 def _lines(df, clones, pal):
     out = {}
     pre = df[~df["is_post_feed"]]
-    for col, ylabel, fname in TS_SPECS:
+    for col, ylabel, fname, ylim in TS_SPECS:
         if col not in df.columns or df[col].isna().all():
             continue
         s = (pre.groupby(["Clone","t_hr"])[col]
@@ -329,6 +331,8 @@ def _lines(df, clones, pal):
         ax.set_xlabel("Culture time (h)")
         ax.set_ylabel(ylabel)
         ax.set_xlim(X_RANGE)
+        if ylim is not None:
+            ax.set_ylim(ylim)
         ax.legend(title="Clone", bbox_to_anchor=(1.02,1), loc="upper left")
         fig.tight_layout()
         out[fname] = _to_b64(fig)
