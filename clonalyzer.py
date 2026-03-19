@@ -361,30 +361,50 @@ def _bars(summary, clones, pal):
 
 
 def _correlations(df, clones, pal):
+    """
+    One scatter + regression trace per clone × phase combination.
+    Color  = clone (from palette)
+    Marker = phase  (circle = Exponential, triangle = Stationary)
+    """
+    # phase → (marker, linestyle, short label)
+    PHASE_STYLE = {
+        PHASE_EXP:  ("o", "-",  "Exp"),
+        PHASE_STAT: ("^", "--", "Stat"),
+    }
+
     out = {}
+    if PHASE not in df.columns:
+        return out
+
     for xcol, ycol, xlabel, ylabel, fname in CORR_SPECS:
         if xcol not in df.columns or ycol not in df.columns:
             continue
-        sub = df[[xcol, ycol, "Clone"]].dropna()
+        sub = df[[xcol, ycol, "Clone", PHASE]].dropna()
         if sub.empty:
             continue
+
         fig, ax = plt.subplots(figsize=FIG_SIZE)
+
         for clone in clones:
-            cd = sub[sub["Clone"] == clone]
-            if cd.empty:
-                continue
-            ax.scatter(cd[xcol], cd[ycol], color=pal[clone],
-                       alpha=0.75, s=55, label=clone)
-        # Single overall regression line
-        all_valid = sub.dropna(subset=[xcol, ycol])
-        if len(all_valid) >= 3:
-            sl, ic, r, _, _ = stats.linregress(all_valid[xcol], all_valid[ycol])
-            xf = np.linspace(all_valid[xcol].min(), all_valid[xcol].max(), 100)
-            ax.plot(xf, sl*xf+ic, color="#444444", lw=2, linestyle="--",
-                    label=f"All (R²={r**2:.2f})")
+            for phase, (marker, ls, short) in PHASE_STYLE.items():
+                cd = sub[(sub["Clone"] == clone) & (sub[PHASE] == phase)]
+                if cd.empty:
+                    continue
+                label = f"{clone} – {short}"
+                ax.scatter(cd[xcol], cd[ycol],
+                           color=pal[clone], marker=marker,
+                           alpha=0.80, s=60, label=label, zorder=3)
+                if len(cd) >= 3:
+                    sl, ic, r, _, _ = stats.linregress(cd[xcol], cd[ycol])
+                    xf = np.linspace(cd[xcol].min(), cd[xcol].max(), 100)
+                    ax.plot(xf, sl*xf+ic,
+                            color=pal[clone], linestyle=ls, linewidth=1.8,
+                            label=f"R²={r**2:.2f}")
+
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
-        ax.legend(title="Clone", bbox_to_anchor=(1.02,1), loc="upper left", fontsize=10)
+        ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left",
+                  fontsize=9, title="Clone – Phase")
         fig.tight_layout()
         out[fname] = _to_b64(fig)
     return out
