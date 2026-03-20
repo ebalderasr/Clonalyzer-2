@@ -192,7 +192,8 @@ clonalyzer_results.zip
 
 ```
 Clonalyzer-2/
-├── index.html       ← single-page app (Bootstrap 5)
+├── index.html       ← markup only (Bootstrap 5)
+├── style.css        ← all custom styles
 ├── app.js           ← Pyodide init, UI logic, ZIP generation
 ├── clonalyzer.py    ← analysis pipeline (runs in-browser via Pyodide)
 └── Fig/             ← screenshot assets for this README
