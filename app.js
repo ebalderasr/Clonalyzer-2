@@ -92,7 +92,7 @@ function setupDropZone() {
 
 // ── File processing ────────────────────────────────────────────────────────────
 async function handleFile(file) {
-    if (!file.name.endsWith(".csv")) {
+    if (!file.name.toLowerCase().endsWith(".csv")) {
         alert("Please select a CSV file.");
         return;
     }
@@ -352,6 +352,16 @@ function addCustomCorrPlot(xcol, ycol, xlabel, ylabel, b64) {
 function show(el) { el?.classList.remove("d-none"); }
 function hide(el) { el?.classList.add("d-none"); }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── MathJax re-render when Methods modal opens ─────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+    const methodsModal = document.getElementById("methodsModal");
+    if (methodsModal) {
+        methodsModal.addEventListener("shown.bs.modal", () => {
+            if (window.MathJax) MathJax.typesetPromise();
+        });
+    }
+});
 
 /** Recursively convert Pyodide Map/PyProxy objects to plain JS objects/arrays. */
 function deepConvert(obj) {
