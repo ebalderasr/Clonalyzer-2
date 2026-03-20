@@ -30,7 +30,10 @@ PALETTE = ["#000000","#FF0066","#107F80","#F0E442",
 REQUIRED_COLS = ["t_hr","Clone","Rep","is_post_feed",
                  "VCD","DCD","Viab_pct","rP_mg_L",
                  "Glc_g_L","Lac_g_L","Gln_mM","Glu_mM","Vol_mL"]
-OPTIONAL_COLS = ["GFP_mean","GFP_std","TMRM_mean","TMRM_std"]
+OPTIONAL_COLS = [
+    "GFP_mean","GFP_std","TMRM_mean","TMRM_std",
+    "Bodipy_mean","Bodipy_std","CellRox_mean","CellRox_std",
+]
 
 PHASE_EXP  = "Exponential"
 PHASE_STAT = "Stationary"
@@ -55,7 +58,17 @@ IVC_INT  = "IVC_interval_cells_h"
 IVC_CUM  = "IVC_cum_cells_h"
 DGFP     = "dGFP_dt"
 DTMRM    = "dTMRM_dt"
+DBODIPY  = "dBodipy_dt"
+DCELLROX = "dCellRox_dt"
 PHASE    = "Fase_Cultivo"
+
+# Fluorescence channels: (intensity column, rate column, display label)
+FLUOR_CHANNELS = [
+    ("GFP_mean",     DGFP,     "GFP"),
+    ("TMRM_mean",    DTMRM,    "TMRM"),
+    ("Bodipy_mean",  DBODIPY,  "BODIPY"),
+    ("CellRox_mean", DCELLROX, "CellROX"),
+]
 
 # plot specs: (column, y-label, filename-stem, ylim or None)
 TS_SPECS = [
@@ -75,10 +88,14 @@ TS_SPECS = [
     (Y_LG,       "Y Lac/Glc (g/g)",         "14_YLacGlc",    None),
     (Y_GQ,       "Y Glu/Gln (mol/mol)",     "15_YGluGln",    None),
     (IVCD_CUM,   "IVCD (cells·h/mL)",        "16_IVCD",       None),
-    ("GFP_mean", "GFP intensity (A.U.)",     "17_GFP",        None),
-    ("TMRM_mean","TMRM intensity (A.U.)",    "18_TMRM",       None),
-    (DGFP,       "dGFP/dt (A.U./h)",         "19_dGFP_dt",    None),
-    (DTMRM,      "dTMRM/dt (A.U./h)",        "20_dTMRM_dt",   None),
+    ("GFP_mean",     "GFP intensity (A.U.)",     "17_GFP",        None),
+    ("TMRM_mean",   "TMRM intensity (A.U.)",    "18_TMRM",       None),
+    (DGFP,          "dGFP/dt (A.U./h)",         "19_dGFP_dt",    None),
+    (DTMRM,         "dTMRM/dt (A.U./h)",        "20_dTMRM_dt",   None),
+    ("Bodipy_mean", "BODIPY intensity (A.U.)",  "21_Bodipy",     None),
+    ("CellRox_mean","CellROX intensity (A.U.)", "22_CellRox",    None),
+    (DBODIPY,       "dBODIPY/dt (A.U./h)",      "23_dBodipy_dt", None),
+    (DCELLROX,      "dCellROX/dt (A.U./h)",     "24_dCellRox_dt",None),
 ]
 
 BAR_SPECS = [
@@ -90,11 +107,14 @@ BAR_SPECS = [
     ("qGlu_exp",      "qGlu exp (pmol/cell/day)", "12_qGlu_Exp"),
     ("Y_Lac_Glc_exp", "Y Lac/Glc exp (g/g)",     "14_YLacGlc_Exp"),
     ("Y_Glu_Gln_exp", "Y Glu/Gln exp (mol/mol)", "15_YGluGln_Exp"),
-    ("dGFP_dt_exp",   "dGFP/dt exp (A.U./h)",    "19_dGFP_dt_Exp"),
-    ("dTMRM_dt_exp",  "dTMRM/dt exp (A.U./h)",   "20_dTMRM_dt_Exp"),
+    ("dGFP_dt_exp",    "dGFP/dt exp (A.U./h)",     "19_dGFP_dt_Exp"),
+    ("dTMRM_dt_exp",   "dTMRM/dt exp (A.U./h)",    "20_dTMRM_dt_Exp"),
+    ("dBODIPY_dt_exp", "dBODIPY/dt exp (A.U./h)",  "21_dBodipy_dt_Exp"),
+    ("dCellROX_dt_exp","dCellROX/dt exp (A.U./h)", "22_dCellRox_dt_Exp"),
 ]
 
 CORR_SPECS = [
+    # GFP / TMRM
     (QP,        "GFP_mean",  "qP (pg/cell/day)",      "GFP (A.U.)",          "40_qP_vs_GFP"),
     (QP,        "TMRM_mean", "qP (pg/cell/day)",      "TMRM (A.U.)",         "41_qP_vs_TMRM"),
     ("GFP_mean","TMRM_mean", "GFP (A.U.)",            "TMRM (A.U.)",         "42_GFP_vs_TMRM"),
@@ -102,6 +122,16 @@ CORR_SPECS = [
     (QP,        QGLC_PMOL,   "qP (pg/cell/day)",      "qGlc (pmol/cell/day)","52_qP_vs_qGlc"),
     (QLAC_PMOL, QGLC_PMOL,   "qLac (pmol/cell/day)",  "qGlc (pmol/cell/day)","55_qLac_vs_qGlc"),
     (QP,        DGFP,        "qP (pg/cell/day)",      "dGFP/dt (A.U./h)",    "60_qP_vs_dGFPdt"),
+    # BODIPY
+    (QP,           "Bodipy_mean", "qP (pg/cell/day)",     "BODIPY (A.U.)",        "61_qP_vs_Bodipy"),
+    (QGLC_PMOL,    "Bodipy_mean", "qGlc (pmol/cell/day)", "BODIPY (A.U.)",        "62_qGlc_vs_Bodipy"),
+    ("GFP_mean",   "Bodipy_mean", "GFP (A.U.)",           "BODIPY (A.U.)",        "63_GFP_vs_Bodipy"),
+    (QP,           DBODIPY,       "qP (pg/cell/day)",     "dBODIPY/dt (A.U./h)",  "64_qP_vs_dBodipydt"),
+    # CellROX
+    (QP,           "CellRox_mean","qP (pg/cell/day)",     "CellROX (A.U.)",       "65_qP_vs_CellRox"),
+    (QGLC_PMOL,    "CellRox_mean","qGlc (pmol/cell/day)", "CellROX (A.U.)",       "66_qGlc_vs_CellRox"),
+    ("Bodipy_mean","CellRox_mean","BODIPY (A.U.)",        "CellROX (A.U.)",       "67_Bodipy_vs_CellRox"),
+    (QP,           DCELLROX,      "qP (pg/cell/day)",     "dCellROX/dt (A.U./h)", "68_qP_vs_dCellRoxdt"),
 ]
 
 
@@ -132,6 +162,10 @@ def _to_b64(fig) -> str:
 
 def _has_cyto(df):
     return all(c in df.columns for c in ("GFP_mean", "TMRM_mean"))
+
+def _active_fluor(df):
+    """Return the subset of FLUOR_CHANNELS whose intensity column is present."""
+    return [(mc, rc, lbl) for mc, rc, lbl in FLUOR_CHANNELS if mc in df.columns]
 
 
 # ── Loader ─────────────────────────────────────────────────────────────────────
@@ -174,8 +208,7 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float) -> pd.DataFrame
     df = df.copy()
     out_cols = [MU,QGLC,QLAC,QGLC_PMOL,QLAC_PMOL,QP,QGLN_H,QGLN_D,QGLU_H,QGLU_D,
                 Y_LG,Y_GQ,IVCD_INT,IVCD_CUM,IVC_INT,IVC_CUM]
-    if _has_cyto(df):
-        out_cols += [DGFP, DTMRM]
+    out_cols += [rc for _, rc, _ in _active_fluor(df)]
     for col in out_cols:
         df[col] = np.nan
 
@@ -247,13 +280,10 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float) -> pd.DataFrame
             df.at[ic, IVC_INT] = ivc_int
             df.at[ic, IVC_CUM] = ivc_cum
 
-            if _has_cyto(df):
-                g1, g2 = rp["GFP_mean"],  rc["GFP_mean"]
-                if pd.notna(g1) and pd.notna(g2):
-                    df.at[ic, DGFP] = (g2-g1) / dt
-                t1, t2 = rp["TMRM_mean"], rc["TMRM_mean"]
-                if pd.notna(t1) and pd.notna(t2):
-                    df.at[ic, DTMRM] = (t2-t1) / dt
+            for mean_col, rate_col, _ in _active_fluor(df):
+                f1, f2 = rp[mean_col], rc[mean_col]
+                if pd.notna(f1) and pd.notna(f2):
+                    df.at[ic, rate_col] = (f2 - f1) / dt
 
     df[PHASE] = np.where(
         (df["t_hr"] >= exp_start) & (df["t_hr"] <= exp_end),
@@ -267,8 +297,7 @@ def _summarise(df: pd.DataFrame) -> pd.DataFrame:
     rate_map = [(QGLC_PMOL,"qGlc_pmol_exp"),(QLAC_PMOL,"qLac_pmol_exp"),(QP,"qP_exp"),
                 (QGLN_D,"qGln_exp"),(QGLU_D,"qGlu_exp"),
                 (Y_LG,"Y_Lac_Glc_exp"),(Y_GQ,"Y_Glu_Gln_exp")]
-    if _has_cyto(df):
-        rate_map += [(DGFP,"dGFP_dt_exp"),(DTMRM,"dTMRM_dt_exp")]
+    rate_map += [(rc, f"d{lbl}_dt_exp") for _, rc, lbl in _active_fluor(df)]
 
     records = []
     for (clone, rep), grp in exp.groupby(["Clone","Rep"], sort=False):
@@ -442,6 +471,10 @@ CUSTOM_CORR_COLS = [
     ("TMRM intensity (A.U.)",    "TMRM_mean"),
     ("dGFP/dt (A.U./h)",         DGFP),
     ("dTMRM/dt (A.U./h)",        DTMRM),
+    ("BODIPY intensity (A.U.)",  "Bodipy_mean"),
+    ("CellROX intensity (A.U.)", "CellRox_mean"),
+    ("dBODIPY/dt (A.U./h)",      DBODIPY),
+    ("dCellROX/dt (A.U./h)",     DCELLROX),
 ]
 
 # ── Analysis state (persists between run_analysis and make_custom_correlation) ─
