@@ -203,14 +203,46 @@ The entire analysis runs client-side. No data leaves your machine.
 
 ---
 
+## Tech stack
+
+**Frontend**
+
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat-square&logo=css3&logoColor=white)
+![Bootstrap](https://img.shields.io/badge/Bootstrap_5-7952B3?style=flat-square&logo=bootstrap&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
+![MathJax](https://img.shields.io/badge/MathJax-A52A2A?style=flat-square)
+
+**Analysis (in-browser)**
+
+![Pyodide](https://img.shields.io/badge/Pyodide-3776AB?style=flat-square&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat-square&logo=pandas&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-013243?style=flat-square&logo=numpy&logoColor=white)
+![Matplotlib](https://img.shields.io/badge/Matplotlib-11557C?style=flat-square&logo=python&logoColor=white)
+![SciPy](https://img.shields.io/badge/SciPy-8CAAE6?style=flat-square&logo=scipy&logoColor=white)
+
+**Packaging**
+
+![JSZip](https://img.shields.io/badge/JSZip-555555?style=flat-square)
+![FileSaver](https://img.shields.io/badge/FileSaver.js-555555?style=flat-square)
+
+Fully static — no backend, no server, no installation. All computation runs client-side via WebAssembly. No data leaves your machine.
+
+---
+
+## Author
+
+**Emiliano Balderas Ramírez**
+Bioengineer · PhD Candidate in Biochemical Sciences
+Instituto de Biotecnología (IBt), UNAM
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-emilianobalderas-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/emilianobalderas/)
+[![Email](https://img.shields.io/badge/Email-ebalderas%40live.com.mx-D14836?style=flat-square&logo=gmail&logoColor=white)](mailto:ebalderas@live.com.mx)
+
+---
+
 ## Related
 
 [**Clonalyzer**](https://github.com/ebalderasr/clonalyzer) — command-line version of the same pipeline, for scripted or batch workflows.
 
----
-
-<div align="center">
-
-Developed by **Emiliano Balderas Ramírez**
-
-</div>
