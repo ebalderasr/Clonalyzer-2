@@ -1,55 +1,122 @@
 <div align="center">
 
-# ⚗ Clonalyzer 2
+# Clonalyzer 2
 
-### Browser-based kinetics analysis for CHO fed-batch cultures
+### Fed-batch kinetics analysis for CHO cell cultures
 
-**Upload a CSV → get publication-ready plots and data tables — in your browser, no installation required.**
+<br>
 
-[![Live App](https://img.shields.io/badge/Live%20App-GitHub%20Pages-2563EB?style=for-the-badge&logo=github)](https://ebalderasr.github.io/Clonalyzer-2/)
-[![Python](https://img.shields.io/badge/Pyodide-Python%20in%20Browser-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://pyodide.org)
-[![License](https://img.shields.io/badge/License-MIT-107F80?style=for-the-badge)](LICENSE)
+**[→ Open the live app](https://ebalderasr.github.io/Clonalyzer-2/)**
+
+<br>
+
+[![Stack](https://img.shields.io/badge/Stack-Pyodide_·_Pandas_·_Matplotlib-4A90D9?style=for-the-badge)]()
+[![Focus](https://img.shields.io/badge/Focus-Fed--batch_Kinetics_·_CHO-34C759?style=for-the-badge)]()
+[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](./LICENSE)
+[![Part of](https://img.shields.io/badge/Part_of-HostCell_Lab_Suite-5856D6?style=for-the-badge)](https://github.com/ebalderasr)
 
 </div>
 
 ---
 
-## Why Clonalyzer?
+## What is Clonalyzer 2?
 
-Cell line development for therapeutic protein production is a data-intensive process. After each fed-batch run, scientists must extract dozens of kinetic parameters — specific growth rates, metabolite consumption and production rates, yields, integral cell counts — from raw viability counter and metabolite analyzer data. This typically means hours of manual spreadsheet work per experiment, repeated for every clone and replicate.
+Clonalyzer 2 is a **browser-based kinetics analysis tool** for CHO fed-batch cultures. Upload a raw measurement CSV and it computes over 20 kinetic parameters — specific rates, yields, integral cell counts — then generates publication-ready plots and packages everything into a downloadable ZIP.
 
-**Clonalyzer 2 automates this entire pipeline.** Drop in your raw measurement CSV, set your exponential phase window, and within seconds you have:
-
-- Time-resolved kinetic profiles for every clone and replicate
-- Mean ± SD comparisons across biological replicates
-- Exponential-phase summary statistics ready for clone ranking
-- Pairwise correlation analysis between any two parameters
-- A ZIP with all processed data and plots, ready for reports or publications
-
-No Python environment to set up, no scripts to run. It works in any modern browser through [Pyodide](https://pyodide.org) — the full scientific Python stack compiled to WebAssembly.
+It runs entirely in the browser through [Pyodide](https://pyodide.org), the full scientific Python stack compiled to WebAssembly. No Python environment to install, no scripts to run, no data leaves your machine.
 
 ---
 
-## Gallery
+## Why it matters
 
-<table>
-<tr>
-<td align="center" width="50%">
+After each fed-batch run, extracting kinetic parameters from raw viability counter and metabolite analyzer data typically means hours of manual spreadsheet work — repeated for every clone and replicate. Without a dedicated tool:
 
-**Time-resolved profiles — Mean ± SD**
-<img src="Fig/F1.png" alt="Mean ± SD plots: VCD, Viability, μ, Glucose" width="100%">
-<sub>Growth, viability, specific growth rate and glucose consumption across culture time for three CHO clones (n = 3 biological replicates). Error bars = ± 1 SD.</sub>
+- Specific rates must be calculated interval by interval from raw concentration and volume data
+- Feed events require manual correction to avoid confounding dilution with cellular activity
+- Clone comparisons and replicate statistics are assembled by hand from separate files
 
-</td>
-<td align="center" width="50%">
+Clonalyzer 2 automates the entire pipeline in a single CSV drop.
 
-**Exponential phase summary**
-<img src="Fig/F2.png" alt="Bar charts: μ exp, qGlc exp, qLac exp, qP exp" width="100%">
-<sub>Clone-level comparison of exponential-phase parameters. Bars = mean ± SD; dots = individual replicates. Enables rapid identification of high-productivity, metabolically efficient clones.</sub>
+---
 
-</td>
-</tr>
-</table>
+## How it works
+
+### 1. Upload
+
+Drag and drop your CSV file or click to browse. Two layouts are accepted:
+
+**With metadata row** *(default — toggle "Skip first row")*
+```
+Culture time (h),  Clone ID,  Biological replicate, ...   ← ignored
+t_hr,              Clone,     Rep,                  ...   ← column names
+0,                 Control,   1,                    ...   ← data
+```
+
+**Without metadata row**
+```
+t_hr,  Clone,  Rep,  ...   ← column names
+0,     Control,  1,  ...   ← data
+```
+
+> European decimal commas (`1,5`) are accepted and converted automatically.
+
+### 2. Set the exponential phase window
+
+Define the start and end time (h) of the exponential phase. All specific rates are summarized separately for the exponential and stationary phases. Default: 0–96 h.
+
+### 3. Explore results
+
+Results are organized across four tabbed plot families:
+
+| Tab | Contents |
+|---|---|
+| Scatter | Individual data points colored by clone |
+| Mean ± SD | Time-resolved profiles with error bars across biological replicates |
+| Exponential phase bars | Clone-level comparison of exponential-phase parameter means ± SD |
+| Correlations | Custom pairwise plots segmented by clone and phase |
+
+### 4. Download
+
+Click **Download results (.zip)** to export all CSVs and plots:
+
+```
+clonalyzer_results.zip
+├── data_kinetics_processed.csv      ← all computed parameters, one row per sample
+├── data_exp_phase_summary.csv       ← per clone × replicate exponential-phase means
+└── plots/
+    ├── 01_scatter/
+    ├── 02_lines/
+    ├── 03_bars_exp_phase/
+    └── 04_correlations/
+```
+
+---
+
+## Methods
+
+### Cell average between timepoints
+
+All specific rates are normalized by the average viable cell count between consecutive timepoints, accounting for culture volume:
+
+$$\bar{N} = \frac{1}{2}\left(VCD_1 \cdot V_1 + VCD_2 \cdot V_2\right) \times 10^3 \quad \text{[cells]}$$
+
+### Specific rates
+
+| Parameter | Formula | Units |
+|---|---|---|
+| μ | $\ln(VCD_2/VCD_1) \ / \ \Delta t$ | h⁻¹ |
+| qGlc | $\Delta(\text{Glc} \cdot V) \ / \ \Delta t \ / \ \bar{N} \div MW$ | pmol/cell/day |
+| qLac | $\Delta(\text{Lac} \cdot V) \ / \ \Delta t \ / \ \bar{N} \div MW$ | pmol/cell/day |
+| qGln | $\Delta(\text{Gln} \cdot V) \ / \ \Delta t \ / \ \bar{N}$ | pmol/cell/day |
+| qGlu | $\Delta(\text{Glu} \cdot V) \ / \ \Delta t \ / \ \bar{N}$ | pmol/cell/day |
+| qP | $\Delta(\text{rP} \cdot V) \ / \ \Delta t \ / \ \bar{N}$ | pg/cell/day |
+| Y Lac/Glc | $\Delta(\text{Lac} \cdot V) \ / \ \Delta(\text{Glc} \cdot V)$ | g/g |
+| Y Glu/Gln | $\Delta(\text{Glu} \cdot V) \ / \ \Delta(\text{Gln} \cdot V)$ | mol/mol |
+| IVCD | $\int VCD \ dt$ (cumulative trapezoid) | cells·h/mL |
+
+### Fed-batch correction
+
+Intervals crossing a feed event (`is_post_feed` transition) are excluded from rate calculations. The apparent concentration change at that point reflects medium dilution, not cellular activity. Volume-corrected mass balances (S × V) handle dilution in all other intervals.
 
 ---
 
@@ -58,45 +125,17 @@ No Python environment to set up, no scripts to run. It works in any modern brows
 | | |
 |---|---|
 | **Zero installation** | Runs fully client-side via Pyodide — no Python, no pip, no server |
-| **Batch & fed-batch** | Feed events handled automatically via `is_post_feed` flag |
-| **Configurable phase window** | Set exponential phase start and end independently |
-| **20+ kinetic parameters** | μ, qGlc, qLac, qP, qGln, qGlu, yields, IVCD, dGFP/dt, dTMRM/dt |
+| **20+ kinetic parameters** | μ, qGlc, qLac, qP, qGln, qGlu, yields, IVCD, fluorescence kinetics |
 | **4 plot families** | Scatter · Mean ± SD · Exponential phase bars · Correlations |
+| **Fed-batch aware** | Feed events excluded automatically from rate calculations |
+| **Configurable phase window** | Set exponential phase start and end independently |
 | **Custom correlations** | Build any pairwise plot on demand, segmented by clone and phase |
 | **Download ZIP** | All CSVs and PNGs packaged in one click |
-
----
-
-## Getting started
-
-1. Open **[ebalderasr.github.io/Clonalyzer-2](https://ebalderasr.github.io/Clonalyzer-2/)**
-2. Wait ~30 s on first load while Python downloads (cached for the rest of the session)
-3. Set the exponential phase window (default: 0 – 96 h)
-4. Toggle **Skip first row** if your CSV has a metadata header
-5. Drag & drop your CSV or click to browse
-6. Explore results in the tabbed viewer
-7. Click **Download results (.zip)** to export everything
+| **No data upload** | Everything runs locally in the browser — no data leaves your machine |
 
 ---
 
 ## Input format
-
-### CSV structure
-
-The tool accepts two layouts:
-
-**With metadata row** *(default — "Skip first row" ✓)*
-```
-Culture time (h),  Clone ID,  Biological replicate, ...   ← ignored
-t_hr,              Clone,     Rep,                  ...   ← column names
-0,                 Control,   1,                    ...   ← data
-```
-
-**Without metadata row** *(uncheck "Skip first row")*
-```
-t_hr,  Clone,  Rep,  ...   ← column names
-0,     Control,  1,  ...   ← data
-```
 
 ### Required columns
 
@@ -125,66 +164,28 @@ If present, fluorescence kinetics plots and correlation panels are generated aut
 | `GFP_mean` / `GFP_std` | GFP fluorescence intensity (A.U.) |
 | `TMRM_mean` / `TMRM_std` | TMRM fluorescence intensity (A.U.) |
 
-> European decimal commas (`1,5`) are accepted and converted automatically.
-
 ---
 
-## Methods
+## Tech stack
 
-### Trapezoid cell average
+**Analysis (in-browser via WebAssembly)**
 
-All specific rates normalize by the average viable cell count between two consecutive timepoints:
+![Pyodide](https://img.shields.io/badge/Pyodide-3776AB?style=flat-square&logo=python&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat-square&logo=pandas&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-013243?style=flat-square&logo=numpy&logoColor=white)
+![Matplotlib](https://img.shields.io/badge/Matplotlib-11557C?style=flat-square&logo=python&logoColor=white)
+![SciPy](https://img.shields.io/badge/SciPy-8CAAE6?style=flat-square&logo=scipy&logoColor=white)
 
-$$\bar{N} = \frac{1}{2}\left(VCD_1 \cdot V_1 + VCD_2 \cdot V_2\right) \times 10^3 \quad \text{[cells]}$$
+**Frontend**
 
-### Specific rates
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat-square&logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
 
-| Parameter | Formula | Units |
-|---|---|---|
-| μ | ln(VCD₂/VCD₁) / Δt | h⁻¹ |
-| qGlc | Δ(Glc·V) / Δt / N̄ ÷ MW | pmol/cell/day |
-| qLac | Δ(Lac·V) / Δt / N̄ ÷ MW | pmol/cell/day |
-| qGln | Δ(Gln·V) / Δt / N̄ | pmol/cell/day |
-| qGlu | Δ(Glu·V) / Δt / N̄ | pmol/cell/day |
-| qP | Δ(rP·V) / Δt / N̄ | pg/cell/day |
-| Y Lac/Glc | Δ(Lac·V) / Δ(Glc·V) | g/g |
-| Y Glu/Gln | Δ(Glu·V) / Δ(Gln·V) | mol/mol |
-| IVCD | ∫VCD dt (cumulative trapezoid) | cells·h/mL |
+**Packaging**
 
-### Fed-batch correction
-
-Intervals crossing a feed event (`is_post_feed` transition) are excluded from rate calculations. The apparent change in metabolite concentrations at that point reflects medium dilution, not cellular activity. Volume-corrected mass balances (S × V) handle dilution effects in all other intervals.
-
-### Phase classification
-
-| Phase | Criterion |
-|---|---|
-| Exponential | t_start ≤ t_hr ≤ t_end *(configurable, default 0–96 h)* |
-| Stationary | all other timepoints |
-
-### Plot conventions
-
-| Element | Encoding |
-|---|---|
-| Color | Clone |
-| Marker | ● Exponential phase · ▲ Stationary phase |
-| Regression line | Solid = Exponential · Dashed = Stationary |
-| Error bars | ± 1 SD across biological replicates |
-
----
-
-## Output
-
-```
-clonalyzer_results.zip
-├── data_kinetics_processed.csv      ← all computed parameters, one row per sample
-├── data_exp_phase_summary.csv       ← per clone × replicate exponential-phase means
-└── plots/
-    ├── 01_scatter/                  ← individual data points coloured by clone
-    ├── 02_lines/                    ← mean ± SD with error bars
-    ├── 03_bars_exp_phase/           ← clone comparison bar charts
-    └── 04_correlations/             ← pairwise correlations by clone × phase
-```
+![JSZip](https://img.shields.io/badge/JSZip-555555?style=flat-square)
+![FileSaver](https://img.shields.io/badge/FileSaver.js-555555?style=flat-square)
 
 ---
 
@@ -192,42 +193,12 @@ clonalyzer_results.zip
 
 ```
 Clonalyzer-2/
-├── index.html       ← markup only (Bootstrap 5)
-├── style.css        ← all custom styles
-├── app.js           ← Pyodide init, UI logic, ZIP generation
-├── clonalyzer.py    ← analysis pipeline (runs in-browser via Pyodide)
-└── Fig/             ← screenshot assets for this README
+├── index.html          ← markup only
+├── style.css           ← all custom styles
+├── app.js              ← Pyodide init, UI logic, ZIP generation
+├── clonalyzer.py       ← analysis pipeline (runs in-browser via Pyodide)
+└── Fig/                ← screenshot assets for this README
 ```
-
-The entire analysis runs client-side. No data leaves your machine.
-
----
-
-## Tech stack
-
-**Frontend**
-
-![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat-square&logo=css3&logoColor=white)
-![Bootstrap](https://img.shields.io/badge/Bootstrap_5-7952B3?style=flat-square&logo=bootstrap&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
-![MathJax](https://img.shields.io/badge/MathJax-A52A2A?style=flat-square)
-
-**Analysis (in-browser)**
-
-![Pyodide](https://img.shields.io/badge/Pyodide-3776AB?style=flat-square&logo=python&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
-![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat-square&logo=pandas&logoColor=white)
-![NumPy](https://img.shields.io/badge/NumPy-013243?style=flat-square&logo=numpy&logoColor=white)
-![Matplotlib](https://img.shields.io/badge/Matplotlib-11557C?style=flat-square&logo=python&logoColor=white)
-![SciPy](https://img.shields.io/badge/SciPy-8CAAE6?style=flat-square&logo=scipy&logoColor=white)
-
-**Packaging**
-
-![JSZip](https://img.shields.io/badge/JSZip-555555?style=flat-square)
-![FileSaver](https://img.shields.io/badge/FileSaver.js-555555?style=flat-square)
-
-Fully static — no backend, no server, no installation. All computation runs client-side via WebAssembly. No data leaves your machine.
 
 ---
 
@@ -244,5 +215,10 @@ Instituto de Biotecnología (IBt), UNAM
 
 ## Related
 
-[**Clonalyzer**](https://github.com/ebalderasr/clonalyzer) — command-line version of the same pipeline, for scripted or batch workflows.
+[**CellSplit**](https://github.com/ebalderasr/CellSplit) — Neubauer cell counting and passage planning for CHO cultures.
 
+[**CellBlock**](https://github.com/ebalderasr/CellBlock) — shared biosafety cabinet scheduling for cell culture research groups.
+
+---
+
+<div align="center"><i>Clonalyzer 2 — drop a CSV, get your kinetics.</i></div>
