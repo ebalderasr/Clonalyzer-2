@@ -25,13 +25,26 @@ MW_LAC = 90.08    # lactate / lactic acid
 PALETTE = ["#000000","#FF0066","#107F80","#F0E442",
            "#0072B2","#D55E00","#CC79A7","#999999"]
 
-REQUIRED_COLS = ["t_hr","Clone","Rep","is_post_feed",
+# Columns that must be present in every dataset
+REQUIRED_COLS = ["t_hr","Clone","Rep",
                  "VCD","DCD","Viab_pct","rP_mg_L",
-                 "Glc_g_L","Lac_g_L","Gln_mM","Glu_mM","Vol_mL"]
+                 "Glc_g_L","Lac_g_L","Gln_mM","Glu_mM"]
+
+# Vol_mL is OPTIONAL — its presence/absence determines the calculation scenario:
+#   present  → variable-volume: mass balances with ITVC normalization
+#   absent   → constant-volume: concentration-based with IVCD normalization
+VOL_COL = "Vol_mL"
+
+# is_post_feed is optional; defaults to False when absent (batch/constant-volume datasets)
+FEED_COL = "is_post_feed"
+
 OPTIONAL_COLS = [
     "GFP_mean","GFP_std","TMRM_mean","TMRM_std",
     "Bodipy_mean","Bodipy_std","CellRox_mean","CellRox_std",
 ]
+
+SCENARIO_VAR   = "variable_volume"   # Vol_mL present
+SCENARIO_CONST = "constant_volume"   # Vol_mL absent
 
 PHASE_EXP  = "Exponential"
 PHASE_STAT = "Stationary"
@@ -49,10 +62,10 @@ QGLU_H    = "qGlu_pmol_cell_h"
 QGLU_D    = "qGlu_pmol_cell_day"
 Y_LG      = "Y_Lac_per_Glc_g_per_g"
 Y_GQ      = "Y_Glu_per_Gln_mol_per_mol"
-IVCD_INT  = "IVCD_interval_cells_h_per_mL"
+IVCD_INT  = "IVCD_interval_cells_h_per_mL"   # VCD trapezoid — constant-volume normalizer
 IVCD_CUM  = "IVCD_cum_cells_h_per_mL"
-IVC_INT   = "IVC_interval_cells_h"
-IVC_CUM   = "IVC_cum_cells_h"
+ITVC_INT  = "ITVC_interval_cells_h"          # TC trapezoid  — variable-volume normalizer
+ITVC_CUM  = "ITVC_cum_cells_h"
 DGFP      = "dGFP_dt"
 DTMRM     = "dTMRM_dt"
 DBODIPY   = "dBodipy_dt"
@@ -84,7 +97,8 @@ TS_SPECS = [
     (QP,             "qP (pg/cell/day)",          "13_qP",          None),
     (Y_LG,           "Y Lac/Glc (g/g)",           "14_YLacGlc",     None),
     (Y_GQ,           "Y Glu/Gln (mol/mol)",       "15_YGluGln",     None),
-    (IVCD_CUM,       "IVCD (cells·h/mL)",         "16_IVCD",        None),
+    (IVCD_CUM,       "IVCD (cells·h/mL)",          "16_IVCD",        None),
+    (ITVC_CUM,       "ITVC (cells·h)",             "16b_ITVC",       None),
     ("GFP_mean",     "GFP intensity (A.U.)",      "17_GFP",         None),
     ("TMRM_mean",    "TMRM intensity (A.U.)",     "18_TMRM",        None),
     (DGFP,           "dGFP/dt (A.U./h)",          "19_dGFP_dt",     None),
@@ -155,6 +169,7 @@ CUSTOM_CORR_COLS = [
     ("Y Lac/Glc (g/g)",          Y_LG),
     ("Y Glu/Gln (mol/mol)",      Y_GQ),
     ("IVCD (cells·h/mL)",        IVCD_CUM),
+    ("ITVC (cells·h)",           ITVC_CUM),
     ("GFP intensity (A.U.)",     "GFP_mean"),
     ("TMRM intensity (A.U.)",    "TMRM_mean"),
     ("dGFP/dt (A.U./h)",         DGFP),
@@ -203,26 +218,39 @@ def _load(csv_text: str, skip_first_row: bool = True) -> pd.DataFrame:
     header_row = 1 if skip_first_row else 0
     df = pd.read_csv(io.StringIO(csv_text), header=header_row)
 
+    # ── Required columns ──────────────────────────────────────────────────────
     missing = [c for c in REQUIRED_COLS if c not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
 
+    # ── Optional: Vol_mL (scenario detection) ─────────────────────────────────
+    # Presence triggers variable-volume path; absence → constant-volume path.
+    # Do NOT synthesize a default here — _compute() handles the vol=1 fallback
+    # so that the scenario flag is unambiguous.
+
+    # ── Optional: is_post_feed (feed-event marker) ────────────────────────────
+    # Irrelevant for constant-volume / batch datasets; defaults to False.
+    if FEED_COL not in df.columns:
+        df[FEED_COL] = False
+    elif df[FEED_COL].dtype == object:
+        df[FEED_COL] = (
+            df[FEED_COL].str.strip().str.upper()
+            .map({"TRUE": True, "FALSE": False, "1": True, "0": False})
+            .fillna(False)
+        )
+    df[FEED_COL] = df[FEED_COL].astype(bool)
+
+    # ── Numeric coercion ──────────────────────────────────────────────────────
     numeric = ["t_hr","Rep","VCD","DCD","Viab_pct","rP_mg_L",
-               "Glc_g_L","Lac_g_L","Gln_mM","Glu_mM","Vol_mL"] + \
+               "Glc_g_L","Lac_g_L","Gln_mM","Glu_mM"] + \
+              ([VOL_COL] if VOL_COL in df.columns else []) + \
               [c for c in OPTIONAL_COLS if c in df.columns]
     for col in numeric:
         if df[col].dtype == object:
             df[col] = df[col].str.replace(",", ".", regex=False)
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    if df["is_post_feed"].dtype == object:
-        df["is_post_feed"] = (
-            df["is_post_feed"].str.strip().str.upper()
-            .map({"TRUE": True, "FALSE": False, "1": True, "0": False})
-            .fillna(False)
-        )
-    df["is_post_feed"] = df["is_post_feed"].astype(bool)
-
+    # ── Cytometry forward-fill ────────────────────────────────────────────────
     cyto = [c for c in OPTIONAL_COLS if c in df.columns]
     if cyto:
         df = df.sort_values(["Clone","Rep","t_hr"]).reset_index(drop=True)
@@ -234,81 +262,146 @@ def _load(csv_text: str, skip_first_row: bool = True) -> pd.DataFrame:
 # ── Kinetics ───────────────────────────────────────────────────────────────────
 
 def _compute(df: pd.DataFrame, exp_start: float, exp_end: float) -> pd.DataFrame:
+    """
+    Compute kinetic and metabolic parameters for every consecutive interval
+    within each Clone × Rep group.
+
+    Scenario detection
+    ──────────────────
+    • variable_volume  (Vol_mL present):
+        - Mass-balance approach: M = concentration × volume
+        - Normalizer: ITVC = ∫ TC dt  where TC = VCD × Vol_mL
+        - q_X = ΔM_X / ΔITVC    (intensive rate from extensive quantities)
+        - Y   = ΔM_product / ΔM_substrate
+
+    • constant_volume  (Vol_mL absent):
+        - Concentration-based approach (vol set to 1.0 placeholder)
+        - Normalizer: IVCD = ∫ VCD dt  (concentrations, no volume needed)
+        - q_X = ΔC_X / ΔIVCD           (same formula; vol cancels when constant)
+        - Y   = ΔC_product / ΔC_substrate
+
+    Critical exception
+    ──────────────────
+    μ ALWAYS uses VCD (concentration), never total cells (TC).
+    Using TC for μ when volume decreases (sampling) yields spurious
+    negative values that do not reflect true cellular growth rate.
+    """
     df = df.copy()
-    out_cols = [MU,QGLC,QLAC,QGLC_PMOL,QLAC_PMOL,QP,QGLN_H,QGLN_D,QGLU_H,QGLU_D,
-                Y_LG,Y_GQ,IVCD_INT,IVCD_CUM,IVC_INT,IVC_CUM]
+
+    # ── Scenario detection ────────────────────────────────────────────────────
+    has_vol = VOL_COL in df.columns
+
+    out_cols = [MU, QGLC, QLAC, QGLC_PMOL, QLAC_PMOL, QP,
+                QGLN_H, QGLN_D, QGLU_H, QGLU_D,
+                Y_LG, Y_GQ, IVCD_INT, IVCD_CUM]
+    if has_vol:
+        out_cols += [ITVC_INT, ITVC_CUM]
     out_cols += [rc for _, rc, _ in _active_fluor(df)]
     for col in out_cols:
         df[col] = np.nan
 
-    for (_, rep), grp in df.groupby(["Clone","Rep"], sort=False):
+    for (_, _rep), grp in df.groupby(["Clone","Rep"], sort=False):
         idx = grp.index.tolist()
-        ivcd_cum = ivc_cum = 0.0
+        ivcd_cum = itvc_cum = 0.0
 
         for k in range(1, len(idx)):
             ip, ic = idx[k-1], idx[k]
-            rp, rc  = df.loc[ip], df.loc[ic]
+            rp, rc = df.loc[ip], df.loc[ic]
 
-            if (not rp["is_post_feed"]) and rc["is_post_feed"]:
+            # Skip the pre-feed → post-feed dilution interval (not cellular activity)
+            if (not rp[FEED_COL]) and rc[FEED_COL]:
                 continue
             dt = rc["t_hr"] - rp["t_hr"]
             if dt <= 0:
                 continue
 
-            v1, v2     = rp["VCD"],    rc["VCD"]
-            vol1, vol2 = rp["Vol_mL"], rc["Vol_mL"]
+            v1, v2 = rp["VCD"], rc["VCD"]
 
+            # ── μ: ALWAYS from VCD — NEVER from total cells ───────────────────
+            # Using TC would produce negative μ when volume drops on sampling,
+            # erroneously mixing dilution effect with growth rate.
             if v1 > 0 and v2 > 0:
-                df.at[ic, MU] = np.log(v2/v1) / dt
+                df.at[ic, MU] = np.log(v2 / v1) / dt
 
-            ntrap = 0.5 * (v1*1e3*vol1 + v2*1e3*vol2)
+            # ── Volume for mass-balance terms ─────────────────────────────────
+            # variable_volume: use measured volumes → mass = conc × vol
+            # constant_volume: vol = 1.0 → mass terms collapse to concentrations
+            if has_vol:
+                vol1, vol2 = rp[VOL_COL], rc[VOL_COL]
+            else:
+                vol1 = vol2 = 1.0
+
+            # ── Trapezoidal mean cell count (normalizer for q rates) ───────────
+            # Equals ΔITVC/dt (variable vol) or ΔIVCD×1e3/dt (constant vol).
+            # The ×1e3 scale factor compensates for using mL instead of L in
+            # the concentration×volume products, keeping q rates in pg/cell/day.
+            ntrap = 0.5 * (v1 * 1e3 * vol1 + v2 * 1e3 * vol2)
             if ntrap <= 0:
                 continue
 
-            dglc = rp["Glc_g_L"]*vol1 - rc["Glc_g_L"]*vol2
+            # ── Specific glucose consumption rate ─────────────────────────────
+            # variable:  q_glc = ΔM_Glc / ΔITVC   [mass balance]
+            # constant:  q_glc = ΔC_Glc / ΔIVCD   [collapses at vol=1]
+            dglc = rp["Glc_g_L"] * vol1 - rc["Glc_g_L"] * vol2
             qglc_pg = dglc / dt / ntrap * PG_PER_G * H_PER_DAY
             df.at[ic, QGLC]      = qglc_pg
             df.at[ic, QGLC_PMOL] = qglc_pg / MW_GLC
 
-            dlac = rc["Lac_g_L"]*vol2 - rp["Lac_g_L"]*vol1
+            # ── Specific lactate production rate ──────────────────────────────
+            dlac = rc["Lac_g_L"] * vol2 - rp["Lac_g_L"] * vol1
             qlac_pg = dlac / dt / ntrap * PG_PER_G * H_PER_DAY
             df.at[ic, QLAC]      = qlac_pg
             df.at[ic, QLAC_PMOL] = qlac_pg / MW_LAC
 
+            # ── Specific product (rP) production rate ─────────────────────────
             p1 = rp["rP_mg_L"] if pd.notna(rp["rP_mg_L"]) else 0.0
             p2 = rc["rP_mg_L"] if pd.notna(rc["rP_mg_L"]) else 0.0
-            df.at[ic, QP] = (p2*vol2 - p1*vol1) / dt / ntrap * 1e9 * H_PER_DAY
+            df.at[ic, QP] = (p2 * vol2 - p1 * vol1) / dt / ntrap * 1e9 * H_PER_DAY
 
-            dgln = rp["Gln_mM"]*vol1 - rc["Gln_mM"]*vol2
+            # ── Specific glutamine consumption rate ───────────────────────────
+            dgln = rp["Gln_mM"] * vol1 - rc["Gln_mM"] * vol2
             qgh  = dgln / dt / ntrap * MMOL_TO_PMOL
             df.at[ic, QGLN_H] = qgh
             df.at[ic, QGLN_D] = qgh * H_PER_DAY
 
-            dglu = rc["Glu_mM"]*vol2 - rp["Glu_mM"]*vol1
+            # ── Specific glutamate production rate ────────────────────────────
+            dglu = rc["Glu_mM"] * vol2 - rp["Glu_mM"] * vol1
             qguh = dglu / dt / ntrap * MMOL_TO_PMOL
             df.at[ic, QGLU_H] = qguh
             df.at[ic, QGLU_D] = qguh * H_PER_DAY
 
-            glc_c = rp["Glc_g_L"]*vol1 - rc["Glc_g_L"]*vol2
-            lac_p = rc["Lac_g_L"]*vol2 - rp["Lac_g_L"]*vol1
+            # ── Yields ────────────────────────────────────────────────────────
+            # variable:  Y = ΔM_product / ΔM_substrate   [mass-based]
+            # constant:  Y = ΔC_product / ΔC_substrate   [concentration-based; vol=1]
+            glc_c = rp["Glc_g_L"] * vol1 - rc["Glc_g_L"] * vol2
+            lac_p = rc["Lac_g_L"] * vol2 - rp["Lac_g_L"] * vol1
             if glc_c > 0:
                 df.at[ic, Y_LG] = lac_p / glc_c
 
-            gln_c = rp["Gln_mM"]*vol1 - rc["Gln_mM"]*vol2
-            glu_p = rc["Glu_mM"]*vol2 - rp["Glu_mM"]*vol1
+            gln_c = rp["Gln_mM"] * vol1 - rc["Gln_mM"] * vol2
+            glu_p = rc["Glu_mM"] * vol2 - rp["Glu_mM"] * vol1
             if gln_c > 0:
                 df.at[ic, Y_GQ] = glu_p / gln_c
 
-            ivcd_int  = 0.5*(v1+v2)*dt
+            # ── IVCD: integral of VCD (concentration-based) ───────────────────
+            # Used directly for normalization in constant-volume scenario.
+            # Always computed; remains meaningful even in variable-volume runs.
+            ivcd_int  = 0.5 * (v1 + v2) * dt
             ivcd_cum += ivcd_int
             df.at[ic, IVCD_INT] = ivcd_int
             df.at[ic, IVCD_CUM] = ivcd_cum
 
-            ivc_int  = 0.5 * (v1 * vol1 + v2 * vol2) * dt
-            ivc_cum += ivc_int
-            df.at[ic, IVC_INT] = ivc_int
-            df.at[ic, IVC_CUM] = ivc_cum
+            # ── ITVC: integral of total viable cells (variable-volume only) ───
+            # TC = VCD × Vol_mL  →  ITVC = ∫ TC dt
+            # Used for normalization in variable-volume scenario.
+            # Not computed for constant-volume (vol absent) to avoid ambiguity.
+            if has_vol:
+                itvc_int  = 0.5 * (v1 * vol1 + v2 * vol2) * dt
+                itvc_cum += itvc_int
+                df.at[ic, ITVC_INT] = itvc_int
+                df.at[ic, ITVC_CUM] = itvc_cum
 
+            # ── Fluorescence rates of change ──────────────────────────────────
             for mean_col, rate_col, _ in _active_fluor(df):
                 f1, f2 = rp[mean_col], rc[mean_col]
                 if pd.notna(f1) and pd.notna(f2):
@@ -694,6 +787,8 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
 
     cb("Done!", 100)
 
+    scenario = SCENARIO_VAR if (VOL_COL in df_kin.columns) else SCENARIO_CONST
+
     return {
         "info": {
             "n_clones":     int(df_kin["Clone"].nunique()),
@@ -702,6 +797,7 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
             "n_rows":       int(len(df_kin)),
             "clones":       clones,
             "has_cyto":     bool(_has_cyto(df_kin)),
+            "scenario":     scenario,
         },
         "avail_cols":    avail_cols,
         "processed_csv": df_kin.to_csv(index=False),
