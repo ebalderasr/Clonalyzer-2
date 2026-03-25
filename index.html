@@ -106,13 +106,23 @@
         <span class="text-muted small">h</span>
       </div>
 
-      <!-- Skip first row -->
-      <div class="form-check mb-3">
-        <input class="form-check-input" type="checkbox"
-               id="skip-first-row" checked />
-        <label class="form-check-label small" for="skip-first-row">
-          Skip first row <span class="text-muted">(uncheck if your CSV has no metadata row)</span>
-        </label>
+      <!-- Checkboxes row -->
+      <div class="d-flex flex-wrap gap-4 mb-3">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox"
+                 id="skip-first-row" checked />
+          <label class="form-check-label small" for="skip-first-row">
+            Skip first row <span class="text-muted">(uncheck if your CSV has no metadata row)</span>
+          </label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox"
+                 id="use-volume" checked />
+          <label class="form-check-label small" for="use-volume">
+            Variable volume
+            <span class="text-muted">(use <code>Vol_mL</code> for mass-balance calculations; uncheck to force concentration-based)</span>
+          </label>
+        </div>
       </div>
 
       <!-- Drop zone -->
@@ -282,11 +292,25 @@
           <h5>1. Overview</h5>
           <p>
             Clonalyzer processes time-series measurements from mammalian cell culture
-            experiments and computes specific kinetic rates using a mass-balance approach
-            with trapezoid integration. It supports both <span class="tag-batch">batch</span>
-            and <span class="tag-fedbatch">fed-batch</span> modes through the
-            <code>is_post_feed</code> flag.
+            experiments and computes specific kinetic rates using trapezoid integration.
+            It supports both <span class="tag-batch">batch</span>
+            and <span class="tag-fedbatch">fed-batch</span> modes through the optional
+            <code>is_post_feed</code> flag, and automatically selects between two
+            calculation scenarios depending on whether culture volume data are available:
           </p>
+          <ul>
+            <li>
+              <span class="badge bg-info text-dark">Variable volume</span>
+              — mass-balance approach using <code>Vol_mL</code>; rates normalized by
+              ITVC (Integral Total Viable Cells).
+            </li>
+            <li>
+              <span class="badge bg-warning text-dark">Constant volume</span>
+              — concentration-based approach; rates normalized by
+              IVCD (Integral Viable Cell Density). Used when <code>Vol_mL</code> is
+              absent or the <em>Variable volume</em> checkbox is disabled.
+            </li>
+          </ul>
 
           <!-- 2. Data cleaning -->
           <h5>2. Data cleaning</h5>
@@ -514,6 +538,126 @@
             mean of interval rates across all replicates and timepoints strictly within
             the defined window.
           </p>
+
+          <!-- 6. Volume handling -->
+          <h5>6. Volume handling: constant vs variable volume</h5>
+          <p>
+            Clonalyzer auto-detects the calculation scenario based on whether the
+            <code>Vol_mL</code> column is present in the CSV <strong>and</strong>
+            the <em>Variable volume</em> checkbox is enabled in the upload form.
+          </p>
+
+          <div class="table-responsive mb-3">
+            <table class="table table-sm table-bordered align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Scenario</th>
+                  <th>Condition</th>
+                  <th>Normalizer</th>
+                  <th>Rate formula</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="badge bg-info text-dark">Variable volume</span></td>
+                  <td><code>Vol_mL</code> present + checkbox on</td>
+                  <td>ITVC (cells·h)</td>
+                  <td>$q_S = \Delta(S \cdot V)\,/\,\Delta t\,/\,\Delta ITVC$</td>
+                </tr>
+                <tr>
+                  <td><span class="badge bg-warning text-dark">Constant volume</span></td>
+                  <td><code>Vol_mL</code> absent or checkbox off</td>
+                  <td>IVCD (cells·h/mL)</td>
+                  <td>$q_S = \Delta C_S\,/\,\Delta t\,/\,\Delta IVCD$</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h6>6.1 Variable-volume scenario (mass-balance)</h6>
+          <p>
+            When culture volume changes — due to evaporation, sampling, or medium
+            addition — measuring concentration alone is insufficient, because a drop in
+            glucose concentration could reflect either cellular consumption <em>or</em>
+            simple dilution by the feed. The correct approach is to track the
+            <strong>total mass</strong> of each metabolite:
+          </p>
+          <div class="eq-block">
+            $$M_S = C_S \times V \quad [\text{g or mmol}]$$
+          </div>
+          <p>
+            The specific rate is then the change in total mass normalized by the
+            integral of total viable cells (ITVC):
+          </p>
+          <div class="eq-block">
+            $$q_S = \frac{M_{S,1} - M_{S,2}}{\Delta t \cdot \bar{N}^{\text{trap}}} \quad
+            \bar{N}^{\text{trap}} = \frac{1}{2}(VCD_1 V_1 + VCD_2 V_2) \times 10^3$$
+          </div>
+          <p>
+            The ITVC (Integral Total Viable Cells) accumulates the total number of
+            viable cells over time, accounting for volume:
+          </p>
+          <div class="eq-block">
+            $$ITVC_{\text{interval}} = \frac{VCD_1 V_1 + VCD_2 V_2}{2} \cdot \Delta t
+            \quad [\text{cells·h}]$$
+          </div>
+
+          <h6>6.2 Constant-volume scenario (concentration-based)</h6>
+          <p>
+            When the culture volume is constant — or when volume data are unavailable —
+            every mass term $C_S \times V$ simplifies to $C_S$ (volume cancels).
+            The formulas reduce to:
+          </p>
+          <div class="eq-block">
+            $$q_S = \frac{C_{S,1} - C_{S,2}}{\Delta t \cdot \bar{N}^{\text{trap}}} \quad
+            \bar{N}^{\text{trap}} = \frac{1}{2}(VCD_1 + VCD_2) \times 10^3$$
+          </div>
+          <p>
+            The IVCD (Integral Viable Cell Density) is the normalizer:
+          </p>
+          <div class="eq-block">
+            $$IVCD_{\text{interval}} = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t
+            \quad [\text{cells·h/mL}]$$
+          </div>
+          <p>
+            Mathematically, this scenario is a special case of the variable-volume
+            approach with $V = 1\,\text{mL}$ — the same code path handles both.
+          </p>
+
+          <h6>6.3 Growth rate μ — always VCD-based</h6>
+          <p>
+            Regardless of the volume scenario, the specific growth rate always uses
+            viable cell density (VCD), not total cell count:
+          </p>
+          <div class="eq-block">
+            $$\mu = \frac{\ln(VCD_2 / VCD_1)}{\Delta t} \quad [\text{h}^{-1}]$$
+          </div>
+          <p>
+            Using total cells for μ would produce spurious <em>negative</em> growth
+            rates whenever the culture volume decreases (e.g., sampling removes
+            volume), because cell count drops even though the cells are actively
+            growing. VCD is a concentration, so it is independent of volume changes.
+          </p>
+
+          <h6>6.4 Choosing the right scenario</h6>
+          <ul>
+            <li>
+              <strong>Use variable volume</strong> (default, if <code>Vol_mL</code> is present)
+              when running <span class="tag-fedbatch">fed-batch</span> cultures with
+              significant volume changes between feeds, or whenever accurate mass
+              accounting is desired.
+            </li>
+            <li>
+              <strong>Force constant volume</strong> (uncheck the checkbox) when
+              <code>Vol_mL</code> is present but you wish to compare results directly
+              with literature or previous datasets that used a concentration-based
+              approach, or when volume variations are negligible.
+            </li>
+            <li>
+              If <code>Vol_mL</code> is absent from the CSV, the constant-volume
+              scenario is used automatically regardless of the checkbox state.
+            </li>
+          </ul>
 
         </div><!-- /modal-body -->
 

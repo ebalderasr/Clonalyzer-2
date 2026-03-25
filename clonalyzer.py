@@ -261,20 +261,21 @@ def _load(csv_text: str, skip_first_row: bool = True) -> pd.DataFrame:
 
 # ── Kinetics ───────────────────────────────────────────────────────────────────
 
-def _compute(df: pd.DataFrame, exp_start: float, exp_end: float) -> pd.DataFrame:
+def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
+             use_volume: bool = True) -> pd.DataFrame:
     """
     Compute kinetic and metabolic parameters for every consecutive interval
     within each Clone × Rep group.
 
     Scenario detection
     ──────────────────
-    • variable_volume  (Vol_mL present):
+    • variable_volume  (Vol_mL present AND use_volume=True):
         - Mass-balance approach: M = concentration × volume
         - Normalizer: ITVC = ∫ TC dt  where TC = VCD × Vol_mL
         - q_X = ΔM_X / ΔITVC    (intensive rate from extensive quantities)
         - Y   = ΔM_product / ΔM_substrate
 
-    • constant_volume  (Vol_mL absent):
+    • constant_volume  (Vol_mL absent OR use_volume=False):
         - Concentration-based approach (vol set to 1.0 placeholder)
         - Normalizer: IVCD = ∫ VCD dt  (concentrations, no volume needed)
         - q_X = ΔC_X / ΔIVCD           (same formula; vol cancels when constant)
@@ -289,7 +290,8 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float) -> pd.DataFrame
     df = df.copy()
 
     # ── Scenario detection ────────────────────────────────────────────────────
-    has_vol = VOL_COL in df.columns
+    # has_vol is True only when the column is present AND the user has opted in
+    has_vol = (VOL_COL in df.columns) and bool(use_volume)
 
     out_cols = [MU, QGLC, QLAC, QGLC_PMOL, QLAC_PMOL, QP,
                 QGLN_H, QGLN_D, QGLU_H, QGLU_D,
@@ -739,12 +741,20 @@ def make_custom_correlation(xcol, ycol):
 # ── Public entry point ─────────────────────────────────────────────────────────
 
 def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
-                 skip_first_row=True, progress_cb=None):
+                 skip_first_row=True, progress_cb=None, use_volume=True):
     """
     Main function called from JavaScript via Pyodide.
 
+    Parameters
+    ----------
+    use_volume : bool
+        When True (default) and Vol_mL is present in the CSV, use the
+        variable-volume (mass-balance) scenario. When False, force the
+        constant-volume (concentration-based) scenario regardless of
+        whether Vol_mL is in the CSV.
+
     Returns a dict with keys:
-        info           – dataset metadata
+        info           – dataset metadata (includes 'scenario' key)
         processed_csv  – full kinetics CSV as string
         summary_csv    – exp-phase summary CSV as string
         avail_cols     – list of [label, colname] for custom correlation selectors
@@ -759,7 +769,8 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
     df = _load(csv_text, bool(skip_first_row))
 
     cb("Computing kinetics…", 20)
-    df_kin  = _compute(df, float(exp_phase_start), float(exp_phase_end))
+    df_kin  = _compute(df, float(exp_phase_start), float(exp_phase_end),
+                       use_volume=bool(use_volume))
     summary = _summarise(df_kin)
 
     clones = df_kin["Clone"].unique().tolist()
@@ -787,7 +798,7 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
 
     cb("Done!", 100)
 
-    scenario = SCENARIO_VAR if (VOL_COL in df_kin.columns) else SCENARIO_CONST
+    scenario = SCENARIO_VAR if ((VOL_COL in df_kin.columns) and bool(use_volume)) else SCENARIO_CONST
 
     return {
         "info": {

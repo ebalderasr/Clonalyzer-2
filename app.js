@@ -15,7 +15,7 @@ let elInitBar, elInitMsg, elInitSection;
 let elUploadSection, elDropZone, elFileInput;
 let elProcessSection, elProcessBar, elProcessMsg;
 let elResultsSection;
-let elExpPhaseStartInput, elExpPhaseInput, elSkipFirstRow;
+let elExpPhaseStartInput, elExpPhaseInput, elSkipFirstRow, elUseVolume;
 
 // ── Plotly config used for all interactive charts ──────────────────────────────
 const PLOTLY_CONFIG = {
@@ -41,6 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
     elExpPhaseStartInput = document.getElementById("exp-phase-start");
     elExpPhaseInput      = document.getElementById("exp-phase-end");
     elSkipFirstRow       = document.getElementById("skip-first-row");
+    elUseVolume          = document.getElementById("use-volume");
 
     setupDropZone();
     setupTabResizeListener();
@@ -126,15 +127,17 @@ async function handleFile(file) {
         const expPhaseStart = parseFloat(elExpPhaseStartInput.value) || 0.0;
         const expPhaseEnd   = parseFloat(elExpPhaseInput.value) || 96.0;
         const skipFirstRow  = elSkipFirstRow.checked;
+        const useVolume     = elUseVolume.checked;
 
         pyodide.globals.set("_progress_cb",   (msg, pct) => setProcessProgress(msg, pct));
         pyodide.globals.set("_csv_text",       csvText);
         pyodide.globals.set("_exp_start",      expPhaseStart);
         pyodide.globals.set("_exp_end",        expPhaseEnd);
         pyodide.globals.set("_skip_first_row", skipFirstRow);
+        pyodide.globals.set("_use_volume",     useVolume);
 
         const pyResult = await pyodide.runPythonAsync(
-            `run_analysis(_csv_text, _exp_start, _exp_end, _skip_first_row, _progress_cb)`
+            `run_analysis(_csv_text, _exp_start, _exp_end, _skip_first_row, _progress_cb, _use_volume)`
         );
 
         results = deepConvert(pyResult);
@@ -180,6 +183,9 @@ function renderInfoCards(info) {
     const cytoTag = info.has_cyto
         ? `<span class="badge bg-success ms-2">GFP / TMRM ✓</span>`
         : `<span class="badge bg-secondary ms-2">No cytometry</span>`;
+    const scenarioTag = info.scenario === "variable_volume"
+        ? `<span class="badge bg-info text-dark ms-2">Variable volume</span>`
+        : `<span class="badge bg-warning text-dark ms-2">Constant volume</span>`;
 
     el.innerHTML = `
         <div class="col-6 col-md-3">
@@ -212,6 +218,7 @@ function renderInfoCards(info) {
                 <div class="card-body">
                     <div class="fs-1 fw-bold text-primary">${info.n_rows}</div>
                     <div class="text-muted small">Total rows ${cytoTag}</div>
+                    <div class="mt-1">${scenarioTag}</div>
                 </div>
             </div>
         </div>
