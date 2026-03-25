@@ -1,14 +1,14 @@
 /* ============================================================
    Clonalyzer-2  –  app.js
    Manages Pyodide initialization, file handling, UI state,
-   plot rendering, and ZIP download.
+   interactive Plotly chart rendering, and ZIP download.
    ============================================================ */
 
 "use strict";
 
 // ── State ──────────────────────────────────────────────────────────────────────
-let pyodide   = null;
-let results   = null;
+let pyodide = null;
+let results = null;
 
 // ── DOM refs (populated after DOMContentLoaded) ────────────────────────────────
 let elInitBar, elInitMsg, elInitSection;
@@ -16,6 +16,15 @@ let elUploadSection, elDropZone, elFileInput;
 let elProcessSection, elProcessBar, elProcessMsg;
 let elResultsSection;
 let elExpPhaseStartInput, elExpPhaseInput, elSkipFirstRow;
+
+// ── Plotly config used for all interactive charts ──────────────────────────────
+const PLOTLY_CONFIG = {
+    responsive:              true,
+    displayModeBar:          true,
+    modeBarButtonsToRemove:  ["select2d", "lasso2d", "autoScale2d"],
+    displaylogo:             false,
+    toImageButtonOptions:    { format: "png", width: 900, height: 500, scale: 2 },
+};
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -34,6 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
     elSkipFirstRow       = document.getElementById("skip-first-row");
 
     setupDropZone();
+    setupTabResizeListener();
     initPyodide();
 });
 
@@ -44,7 +54,7 @@ async function initPyodide() {
         pyodide = await loadPyodide();
 
         setInitProgress("Installing scientific packages…", 40);
-        await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "scipy"]);
+        await pyodide.loadPackage(["pandas", "numpy", "scipy"]);
 
         setInitProgress("Loading Clonalyzer…", 80);
         const resp = await fetch("clonalyzer.py");
@@ -90,6 +100,15 @@ function setupDropZone() {
     });
 }
 
+// ── Resize Plotly charts when a tab becomes visible ───────────────────────────
+function setupTabResizeListener() {
+    document.getElementById("plot-tabs")?.addEventListener("shown.bs.tab", e => {
+        const paneId = e.target.getAttribute("data-bs-target");
+        const pane = document.querySelector(paneId);
+        pane?.querySelectorAll(".js-plotly-plot").forEach(div => Plotly.Plots.resize(div));
+    });
+}
+
 // ── File processing ────────────────────────────────────────────────────────────
 async function handleFile(file) {
     if (!file.name.toLowerCase().endsWith(".csv")) {
@@ -108,7 +127,6 @@ async function handleFile(file) {
         const expPhaseEnd   = parseFloat(elExpPhaseInput.value) || 96.0;
         const skipFirstRow  = elSkipFirstRow.checked;
 
-        // Pass progress callback from JS into Python
         pyodide.globals.set("_progress_cb",   (msg, pct) => setProcessProgress(msg, pct));
         pyodide.globals.set("_csv_text",       csvText);
         pyodide.globals.set("_exp_start",      expPhaseStart);
@@ -119,7 +137,6 @@ async function handleFile(file) {
             `run_analysis(_csv_text, _exp_start, _exp_end, _skip_first_row, _progress_cb)`
         );
 
-        // Convert Python proxy → JS object (nested)
         results = deepConvert(pyResult);
 
         displayResults(results);
@@ -148,15 +165,13 @@ function setProcessProgress(msg, pct) {
 // ── Results rendering ──────────────────────────────────────────────────────────
 function displayResults(r) {
     renderInfoCards(r.info);
-    renderPlotTab("tab-scatter",      r.plots.scatter,      "Scatter");
-    renderPlotTab("tab-lines",        r.plots.lines,        "Lines");
-    renderPlotTab("tab-bars",         r.plots.bars,         "Bars");
-    renderPlotTab("tab-correlations", r.plots.correlations, "Correlations");
-    // Activate first tab
+    renderPlotTab("tab-scatter",      r.plots.scatter);
+    renderPlotTab("tab-lines",        r.plots.lines);
+    renderPlotTab("tab-bars",         r.plots.bars);
+    renderPlotTab("tab-correlations", r.plots.correlations);
+    // Activate first tab and resize its charts
     document.querySelector("#plot-tabs .nav-link")?.click();
-    // Populate custom correlation selectors
     populateCustomCorrSelects(r.avail_cols || []);
-    // Clear previous custom plots
     document.getElementById("custom-corr-gallery").innerHTML = "";
 }
 
@@ -203,29 +218,39 @@ function renderInfoCards(info) {
     `;
 }
 
-function renderPlotTab(tabId, plots, label) {
+/**
+ * Render a tab of Plotly charts.
+ * @param {string} tabId  - id of the inner <div> inside the tab pane
+ * @param {Object} plotsData - { fname: { traces, layout } }
+ */
+function renderPlotTab(tabId, plotsData) {
     const container = document.getElementById(tabId);
     if (!container) return;
 
-    const entries = Object.entries(plots || {});
+    const entries = Object.entries(plotsData || {});
     if (entries.length === 0) {
         container.innerHTML = `<p class="text-muted text-center py-4">No plots available for this category.</p>`;
         return;
     }
 
-    container.innerHTML = entries.map(([fname, b64]) => `
+    // Build card grid with placeholder divs
+    container.innerHTML = entries.map(([fname]) => `
         <div class="col-12 col-lg-6 mb-4">
             <div class="card shadow-sm h-100">
-                <div class="card-header py-2 px-3 small text-muted">${fname.replace(/_/g," ")}</div>
-                <div class="card-body p-2 text-center">
-                    <img src="data:image/png;base64,${b64}"
-                         class="img-fluid plot-img"
-                         alt="${fname}"
-                         loading="lazy">
+                <div class="card-header py-2 px-3 small text-muted">
+                    ${fname.replace(/_/g, " ")}
+                </div>
+                <div class="card-body p-1">
+                    <div id="plot-${tabId}-${fname}" class="plotly-chart"></div>
                 </div>
             </div>
         </div>
     `).join("");
+
+    // Render each Plotly chart
+    for (const [fname, spec] of entries) {
+        Plotly.newPlot(`plot-${tabId}-${fname}`, spec.traces, spec.layout, PLOTLY_CONFIG);
+    }
 }
 
 // ── ZIP download ───────────────────────────────────────────────────────────────
@@ -233,8 +258,7 @@ async function downloadZip() {
     if (!results) return;
 
     const btn = document.getElementById("btn-download");
-    btn.disabled    = true;
-    btn.textContent = "Preparing ZIP…";
+    btn.disabled = true;
 
     try {
         const zip = new JSZip();
@@ -242,19 +266,29 @@ async function downloadZip() {
         zip.file("data_exp_phase_summary.csv",  results.summary_csv);
 
         const folders = {
-            "plots/01_scatter":         results.plots.scatter,
-            "plots/02_lines":           results.plots.lines,
-            "plots/03_bars_exp_phase":  results.plots.bars,
-            "plots/04_correlations":    results.plots.correlations,
+            "plots/01_scatter":        results.plots.scatter,
+            "plots/02_lines":          results.plots.lines,
+            "plots/03_bars_exp_phase": results.plots.bars,
+            "plots/04_correlations":   results.plots.correlations,
         };
+
+        // Count total plots for progress display
+        let total = 0;
+        for (const plots of Object.values(folders)) total += Object.keys(plots || {}).length;
+        let done = 0;
+
         for (const [folder, plots] of Object.entries(folders)) {
-            for (const [name, b64] of Object.entries(plots || {})) {
-                zip.file(`${folder}/${name}.png`, b64, { base64: true });
+            for (const [name, spec] of Object.entries(plots || {})) {
+                btn.textContent = `Exporting ${++done}/${total}…`;
+                const b64 = await specToPng(spec);
+                if (b64) zip.file(`${folder}/${name}.png`, b64, { base64: true });
             }
         }
 
+        btn.textContent = "Compressing…";
         const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
         saveAs(blob, "clonalyzer_results.zip");
+
     } catch (err) {
         alert("Error generating ZIP: " + err.message);
         console.error(err);
@@ -264,8 +298,28 @@ async function downloadZip() {
     }
 }
 
+/**
+ * Render a Plotly spec in an off-screen temporary div and return a base64 PNG string.
+ */
+async function specToPng(spec, width = 900, height = 500) {
+    const tempDiv = document.createElement("div");
+    tempDiv.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;height:${height}px;`;
+    document.body.appendChild(tempDiv);
+    try {
+        const exportLayout = { ...spec.layout, width, height, autosize: false };
+        await Plotly.newPlot(tempDiv, spec.traces, exportLayout, { staticPlot: true });
+        const dataUrl = await Plotly.toImage(tempDiv, { format: "png", width, height });
+        return dataUrl.replace("data:image/png;base64,", "");
+    } finally {
+        Plotly.purge(tempDiv);
+        document.body.removeChild(tempDiv);
+    }
+}
+
 // ── Analyze another file ───────────────────────────────────────────────────────
 function analyzeAnother() {
+    // Destroy existing Plotly charts to free memory
+    document.querySelectorAll(".js-plotly-plot").forEach(div => Plotly.purge(div));
     results = null;
     elFileInput.value = "";
     hide(elResultsSection);
@@ -280,27 +334,25 @@ function populateCustomCorrSelects(availCols) {
     xSel.innerHTML = "";
     ySel.innerHTML = "";
     for (const [label, col] of availCols) {
-        const opt = (sel, selected) => {
+        const makeOpt = sel => {
             const o = document.createElement("option");
             o.value = col;
             o.textContent = label;
-            o.selected = selected;
             sel.appendChild(o);
         };
-        opt(xSel, false);
-        opt(ySel, false);
+        makeOpt(xSel);
+        makeOpt(ySel);
     }
-    // Different defaults so the first plot is meaningful
     if (xSel.options.length > 0) xSel.selectedIndex = 0;
     if (ySel.options.length > 1) ySel.selectedIndex = 1;
 }
 
 async function generateCustomCorr() {
-    const xSel = document.getElementById("custom-x");
-    const ySel = document.getElementById("custom-y");
-    const btn  = document.getElementById("btn-custom-corr");
-    const xcol = xSel.value;
-    const ycol = ySel.value;
+    const xSel   = document.getElementById("custom-x");
+    const ySel   = document.getElementById("custom-y");
+    const btn    = document.getElementById("btn-custom-corr");
+    const xcol   = xSel.value;
+    const ycol   = ySel.value;
     const xlabel = xSel.options[xSel.selectedIndex].text;
     const ylabel = ySel.options[ySel.selectedIndex].text;
 
@@ -312,10 +364,11 @@ async function generateCustomCorr() {
     try {
         pyodide.globals.set("_xcol", xcol);
         pyodide.globals.set("_ycol", ycol);
-        const b64 = await pyodide.runPythonAsync(
+        const pyResult = await pyodide.runPythonAsync(
             `make_custom_correlation(_xcol, _ycol)`
         );
-        if (b64) addCustomCorrPlot(xcol, ycol, xlabel, ylabel, b64);
+        const spec = deepConvert(pyResult);
+        if (spec) addCustomCorrPlot(xlabel, ylabel, spec);
         else alert("Not enough data for this combination.");
     } catch (err) {
         alert("Error: " + err.message);
@@ -326,9 +379,11 @@ async function generateCustomCorr() {
     }
 }
 
-function addCustomCorrPlot(xcol, ycol, xlabel, ylabel, b64) {
-    const gallery = document.getElementById("custom-corr-gallery");
-    const id  = `cc-${Date.now()}`;
+function addCustomCorrPlot(xlabel, ylabel, spec) {
+    const gallery   = document.getElementById("custom-corr-gallery");
+    const id        = `cc-${Date.now()}`;
+    const plotDivId = `plot-${id}`;
+
     const div = document.createElement("div");
     div.className = "col-12 col-lg-6 mb-4";
     div.id = id;
@@ -337,15 +392,16 @@ function addCustomCorrPlot(xcol, ycol, xlabel, ylabel, b64) {
             <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center">
                 <span class="small text-muted fw-semibold">${xlabel} vs ${ylabel}</span>
                 <button class="btn btn-sm btn-outline-danger py-0 px-2 lh-1"
-                        onclick="document.getElementById('${id}').remove()"
+                        onclick="Plotly.purge('${plotDivId}'); document.getElementById('${id}').remove()"
                         title="Remove">✕</button>
             </div>
-            <div class="card-body p-2 text-center">
-                <img src="data:image/png;base64,${b64}"
-                     class="img-fluid plot-img" alt="${xlabel} vs ${ylabel}">
+            <div class="card-body p-1">
+                <div id="${plotDivId}" class="plotly-chart"></div>
             </div>
         </div>`;
-    gallery.prepend(div);   // newest plots appear first
+    gallery.prepend(div);
+
+    Plotly.newPlot(plotDivId, spec.traces, spec.layout, PLOTLY_CONFIG);
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -355,12 +411,9 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ── MathJax re-render when Methods modal opens ─────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
-    const methodsModal = document.getElementById("methodsModal");
-    if (methodsModal) {
-        methodsModal.addEventListener("shown.bs.modal", () => {
-            if (window.MathJax) MathJax.typesetPromise();
-        });
-    }
+    document.getElementById("methodsModal")?.addEventListener("shown.bs.modal", () => {
+        if (window.MathJax) MathJax.typesetPromise();
+    });
 });
 
 /** Recursively convert Pyodide Map/PyProxy objects to plain JS objects/arrays. */

@@ -2,22 +2,20 @@
 Clonalyzer processing module – runs inside Pyodide (browser WebAssembly).
 
 Returns all results as a Python dict that JavaScript converts to a JS object.
+Plot data is returned as Plotly-compatible {traces, layout} dicts for
+interactive rendering in the browser via Plotly.js.
 """
 
-import io, base64
+import io
+import math
 import numpy as np
 import pandas as pd
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 from scipy import stats
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 H_PER_DAY    = 24.0
 PG_PER_G     = 1e12
 MMOL_TO_PMOL = 1e9
-FIG_SIZE     = (9, 6)
-DPI          = 100
 X_RANGE      = (-10, 270)
 
 # Molar masses for pmol conversions (g/mol)
@@ -37,7 +35,6 @@ OPTIONAL_COLS = [
 
 PHASE_EXP  = "Exponential"
 PHASE_STAT = "Stationary"
-PHASE_CLR  = {PHASE_EXP: "#0072B2", PHASE_STAT: "#D55E00"}
 
 # output column names
 MU        = "mu_per_h"
@@ -45,22 +42,22 @@ QGLC      = "qGlc_pg_cell_day"
 QLAC      = "qLac_pg_cell_day"
 QGLC_PMOL = "qGlc_pmol_cell_day"
 QLAC_PMOL = "qLac_pmol_cell_day"
-QP       = "qP_pg_cell_day"
-QGLN_H   = "qGln_pmol_cell_h"
-QGLN_D   = "qGln_pmol_cell_day"
-QGLU_H   = "qGlu_pmol_cell_h"
-QGLU_D   = "qGlu_pmol_cell_day"
-Y_LG     = "Y_Lac_per_Glc_g_per_g"
-Y_GQ     = "Y_Glu_per_Gln_mol_per_mol"
-IVCD_INT = "IVCD_interval_cells_h_per_mL"
-IVCD_CUM = "IVCD_cum_cells_h_per_mL"
-IVC_INT  = "IVC_interval_cells_h"
-IVC_CUM  = "IVC_cum_cells_h"
-DGFP     = "dGFP_dt"
-DTMRM    = "dTMRM_dt"
-DBODIPY  = "dBodipy_dt"
-DCELLROX = "dCellRox_dt"
-PHASE    = "Fase_Cultivo"
+QP        = "qP_pg_cell_day"
+QGLN_H    = "qGln_pmol_cell_h"
+QGLN_D    = "qGln_pmol_cell_day"
+QGLU_H    = "qGlu_pmol_cell_h"
+QGLU_D    = "qGlu_pmol_cell_day"
+Y_LG      = "Y_Lac_per_Glc_g_per_g"
+Y_GQ      = "Y_Glu_per_Gln_mol_per_mol"
+IVCD_INT  = "IVCD_interval_cells_h_per_mL"
+IVCD_CUM  = "IVCD_cum_cells_h_per_mL"
+IVC_INT   = "IVC_interval_cells_h"
+IVC_CUM   = "IVC_cum_cells_h"
+DGFP      = "dGFP_dt"
+DTMRM     = "dTMRM_dt"
+DBODIPY   = "dBodipy_dt"
+DCELLROX  = "dCellRox_dt"
+PHASE     = "Fase_Cultivo"
 
 # Fluorescence channels: (intensity column, rate column, display label)
 FLUOR_CHANNELS = [
@@ -72,100 +69,132 @@ FLUOR_CHANNELS = [
 
 # plot specs: (column, y-label, filename-stem, ylim or None)
 TS_SPECS = [
-    ("VCD",      "VCD (cells/mL)",          "01_VCD",        None),
-    ("Viab_pct", "Viability (%)",            "02_Viability",  (0, 100)),
-    (MU,         "μ (1/h)",                  "03_Mu",         None),
-    ("Glc_g_L",  "Glucose (g/L)",            "04_Glc",        None),
-    ("Lac_g_L",  "Lactate (g/L)",            "05_Lac",        None),
-    ("Gln_mM",   "Glutamine (mM)",           "06_Gln",        None),
-    ("Glu_mM",   "Glutamate (mM)",           "07_Glu",        None),
-    ("rP_mg_L",  "rP Titer (mg/L)",          "08_Product",    None),
-    (QGLC_PMOL,  "qGlc (pmol/cell/day)",     "09_qGlc",       None),
-    (QLAC_PMOL,  "qLac (pmol/cell/day)",     "10_qLac",       None),
-    (QGLN_D,     "qGln (pmol/cell/day)",     "11_qGln",       None),
-    (QGLU_D,     "qGlu (pmol/cell/day)",     "12_qGlu",       None),
-    (QP,         "qP (pg/cell/day)",         "13_qP",         None),
-    (Y_LG,       "Y Lac/Glc (g/g)",         "14_YLacGlc",    None),
-    (Y_GQ,       "Y Glu/Gln (mol/mol)",     "15_YGluGln",    None),
-    (IVCD_CUM,   "IVCD (cells·h/mL)",        "16_IVCD",       None),
-    ("GFP_mean",     "GFP intensity (A.U.)",     "17_GFP",        None),
-    ("TMRM_mean",   "TMRM intensity (A.U.)",    "18_TMRM",       None),
-    (DGFP,          "dGFP/dt (A.U./h)",         "19_dGFP_dt",    None),
-    (DTMRM,         "dTMRM/dt (A.U./h)",        "20_dTMRM_dt",   None),
-    ("Bodipy_mean", "BODIPY intensity (A.U.)",  "21_Bodipy",     None),
-    ("CellRox_mean","CellROX intensity (A.U.)", "22_CellRox",    None),
-    (DBODIPY,       "dBODIPY/dt (A.U./h)",      "23_dBodipy_dt", None),
-    (DCELLROX,      "dCellROX/dt (A.U./h)",     "24_dCellRox_dt",None),
+    ("VCD",          "VCD (cells/mL)",           "01_VCD",         None),
+    ("Viab_pct",     "Viability (%)",             "02_Viability",   [0, 100]),
+    (MU,             "μ (1/h)",                   "03_Mu",          None),
+    ("Glc_g_L",      "Glucose (g/L)",             "04_Glc",         None),
+    ("Lac_g_L",      "Lactate (g/L)",             "05_Lac",         None),
+    ("Gln_mM",       "Glutamine (mM)",            "06_Gln",         None),
+    ("Glu_mM",       "Glutamate (mM)",            "07_Glu",         None),
+    ("rP_mg_L",      "rP Titer (mg/L)",           "08_Product",     None),
+    (QGLC_PMOL,      "qGlc (pmol/cell/day)",      "09_qGlc",        None),
+    (QLAC_PMOL,      "qLac (pmol/cell/day)",      "10_qLac",        None),
+    (QGLN_D,         "qGln (pmol/cell/day)",      "11_qGln",        None),
+    (QGLU_D,         "qGlu (pmol/cell/day)",      "12_qGlu",        None),
+    (QP,             "qP (pg/cell/day)",          "13_qP",          None),
+    (Y_LG,           "Y Lac/Glc (g/g)",           "14_YLacGlc",     None),
+    (Y_GQ,           "Y Glu/Gln (mol/mol)",       "15_YGluGln",     None),
+    (IVCD_CUM,       "IVCD (cells·h/mL)",         "16_IVCD",        None),
+    ("GFP_mean",     "GFP intensity (A.U.)",      "17_GFP",         None),
+    ("TMRM_mean",    "TMRM intensity (A.U.)",     "18_TMRM",        None),
+    (DGFP,           "dGFP/dt (A.U./h)",          "19_dGFP_dt",     None),
+    (DTMRM,          "dTMRM/dt (A.U./h)",         "20_dTMRM_dt",    None),
+    ("Bodipy_mean",  "BODIPY intensity (A.U.)",   "21_Bodipy",      None),
+    ("CellRox_mean", "CellROX intensity (A.U.)",  "22_CellRox",     None),
+    (DBODIPY,        "dBODIPY/dt (A.U./h)",       "23_dBodipy_dt",  None),
+    (DCELLROX,       "dCellROX/dt (A.U./h)",      "24_dCellRox_dt", None),
 ]
 
 BAR_SPECS = [
     ("mu_exp",           "μ exp (1/h)",               "03_Mu_Exp"),
     ("qGlc_pmol_exp",    "qGlc exp (pmol/cell/day)",  "09_qGlc_Exp"),
     ("qLac_pmol_exp",    "qLac exp (pmol/cell/day)",  "10_qLac_Exp"),
-    ("qP_exp",        "qP exp (pg/cell/day)",     "13_qP_Exp"),
-    ("qGln_exp",      "qGln exp (pmol/cell/day)", "11_qGln_Exp"),
-    ("qGlu_exp",      "qGlu exp (pmol/cell/day)", "12_qGlu_Exp"),
-    ("Y_Lac_Glc_exp", "Y Lac/Glc exp (g/g)",     "14_YLacGlc_Exp"),
-    ("Y_Glu_Gln_exp", "Y Glu/Gln exp (mol/mol)", "15_YGluGln_Exp"),
-    ("dGFP_dt_exp",    "dGFP/dt exp (A.U./h)",     "19_dGFP_dt_Exp"),
-    ("dTMRM_dt_exp",   "dTMRM/dt exp (A.U./h)",    "20_dTMRM_dt_Exp"),
-    ("dBODIPY_dt_exp", "dBODIPY/dt exp (A.U./h)",  "21_dBodipy_dt_Exp"),
-    ("dCellROX_dt_exp","dCellROX/dt exp (A.U./h)", "22_dCellRox_dt_Exp"),
+    ("qP_exp",           "qP exp (pg/cell/day)",      "13_qP_Exp"),
+    ("qGln_exp",         "qGln exp (pmol/cell/day)",  "11_qGln_Exp"),
+    ("qGlu_exp",         "qGlu exp (pmol/cell/day)",  "12_qGlu_Exp"),
+    ("Y_Lac_Glc_exp",    "Y Lac/Glc exp (g/g)",       "14_YLacGlc_Exp"),
+    ("Y_Glu_Gln_exp",    "Y Glu/Gln exp (mol/mol)",   "15_YGluGln_Exp"),
+    ("dGFP_dt_exp",      "dGFP/dt exp (A.U./h)",      "19_dGFP_dt_Exp"),
+    ("dTMRM_dt_exp",     "dTMRM/dt exp (A.U./h)",     "20_dTMRM_dt_Exp"),
+    ("dBODIPY_dt_exp",   "dBODIPY/dt exp (A.U./h)",   "21_dBodipy_dt_Exp"),
+    ("dCellROX_dt_exp",  "dCellROX/dt exp (A.U./h)",  "22_dCellRox_dt_Exp"),
 ]
 
 CORR_SPECS = [
     # GFP / TMRM
-    (QP,        "GFP_mean",  "qP (pg/cell/day)",      "GFP (A.U.)",          "40_qP_vs_GFP"),
-    (QP,        "TMRM_mean", "qP (pg/cell/day)",      "TMRM (A.U.)",         "41_qP_vs_TMRM"),
-    ("GFP_mean","TMRM_mean", "GFP (A.U.)",            "TMRM (A.U.)",         "42_GFP_vs_TMRM"),
-    (QGLC_PMOL, "TMRM_mean", "qGlc (pmol/cell/day)",  "TMRM (A.U.)",         "50_qGlc_vs_TMRM"),
-    (QP,        QGLC_PMOL,   "qP (pg/cell/day)",      "qGlc (pmol/cell/day)","52_qP_vs_qGlc"),
-    (QLAC_PMOL, QGLC_PMOL,   "qLac (pmol/cell/day)",  "qGlc (pmol/cell/day)","55_qLac_vs_qGlc"),
-    (QP,        DGFP,        "qP (pg/cell/day)",      "dGFP/dt (A.U./h)",    "60_qP_vs_dGFPdt"),
+    (QP,           "GFP_mean",   "qP (pg/cell/day)",      "GFP (A.U.)",           "40_qP_vs_GFP"),
+    (QP,           "TMRM_mean",  "qP (pg/cell/day)",      "TMRM (A.U.)",          "41_qP_vs_TMRM"),
+    ("GFP_mean",   "TMRM_mean",  "GFP (A.U.)",            "TMRM (A.U.)",          "42_GFP_vs_TMRM"),
+    (QGLC_PMOL,    "TMRM_mean",  "qGlc (pmol/cell/day)",  "TMRM (A.U.)",          "50_qGlc_vs_TMRM"),
+    (QP,           QGLC_PMOL,    "qP (pg/cell/day)",      "qGlc (pmol/cell/day)", "52_qP_vs_qGlc"),
+    (QLAC_PMOL,    QGLC_PMOL,    "qLac (pmol/cell/day)",  "qGlc (pmol/cell/day)", "55_qLac_vs_qGlc"),
+    (QP,           DGFP,         "qP (pg/cell/day)",      "dGFP/dt (A.U./h)",     "60_qP_vs_dGFPdt"),
     # BODIPY
-    (QP,           "Bodipy_mean", "qP (pg/cell/day)",     "BODIPY (A.U.)",        "61_qP_vs_Bodipy"),
-    (QGLC_PMOL,    "Bodipy_mean", "qGlc (pmol/cell/day)", "BODIPY (A.U.)",        "62_qGlc_vs_Bodipy"),
-    ("GFP_mean",   "Bodipy_mean", "GFP (A.U.)",           "BODIPY (A.U.)",        "63_GFP_vs_Bodipy"),
-    (QP,           DBODIPY,       "qP (pg/cell/day)",     "dBODIPY/dt (A.U./h)",  "64_qP_vs_dBodipydt"),
+    (QP,           "Bodipy_mean","qP (pg/cell/day)",      "BODIPY (A.U.)",        "61_qP_vs_Bodipy"),
+    (QGLC_PMOL,    "Bodipy_mean","qGlc (pmol/cell/day)",  "BODIPY (A.U.)",        "62_qGlc_vs_Bodipy"),
+    ("GFP_mean",   "Bodipy_mean","GFP (A.U.)",            "BODIPY (A.U.)",        "63_GFP_vs_Bodipy"),
+    (QP,           DBODIPY,      "qP (pg/cell/day)",      "dBODIPY/dt (A.U./h)",  "64_qP_vs_dBodipydt"),
     # CellROX
     (QP,           "CellRox_mean","qP (pg/cell/day)",     "CellROX (A.U.)",       "65_qP_vs_CellRox"),
     (QGLC_PMOL,    "CellRox_mean","qGlc (pmol/cell/day)", "CellROX (A.U.)",       "66_qGlc_vs_CellRox"),
     ("Bodipy_mean","CellRox_mean","BODIPY (A.U.)",        "CellROX (A.U.)",       "67_Bodipy_vs_CellRox"),
-    (QP,           DCELLROX,      "qP (pg/cell/day)",     "dCellROX/dt (A.U./h)", "68_qP_vs_dCellRoxdt"),
+    (QP,           DCELLROX,     "qP (pg/cell/day)",      "dCellROX/dt (A.U./h)", "68_qP_vs_dCellRoxdt"),
+]
+
+# phase → (Plotly marker symbol, Plotly line dash, short label)
+_PHASE_STYLE = {
+    PHASE_EXP:  ("circle",      "solid", "Exp"),
+    PHASE_STAT: ("triangle-up", "dash",  "Stat"),
+}
+
+# Column catalogue for custom correlations
+CUSTOM_CORR_COLS = [
+    ("VCD (cells/mL)",           "VCD"),
+    ("Viability (%)",            "Viab_pct"),
+    ("μ (1/h)",                  MU),
+    ("Glucose (g/L)",            "Glc_g_L"),
+    ("Lactate (g/L)",            "Lac_g_L"),
+    ("Glutamine (mM)",           "Gln_mM"),
+    ("Glutamate (mM)",           "Glu_mM"),
+    ("rP Titer (mg/L)",          "rP_mg_L"),
+    ("qGlc (pmol/cell/day)",     QGLC_PMOL),
+    ("qLac (pmol/cell/day)",     QLAC_PMOL),
+    ("qGln (pmol/cell/day)",     QGLN_D),
+    ("qGlu (pmol/cell/day)",     QGLU_D),
+    ("qP (pg/cell/day)",         QP),
+    ("Y Lac/Glc (g/g)",          Y_LG),
+    ("Y Glu/Gln (mol/mol)",      Y_GQ),
+    ("IVCD (cells·h/mL)",        IVCD_CUM),
+    ("GFP intensity (A.U.)",     "GFP_mean"),
+    ("TMRM intensity (A.U.)",    "TMRM_mean"),
+    ("dGFP/dt (A.U./h)",         DGFP),
+    ("dTMRM/dt (A.U./h)",        DTMRM),
+    ("BODIPY intensity (A.U.)",  "Bodipy_mean"),
+    ("CellROX intensity (A.U.)", "CellRox_mean"),
+    ("dBODIPY/dt (A.U./h)",      DBODIPY),
+    ("dCellROX/dt (A.U./h)",     DCELLROX),
 ]
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def _setup_mpl():
-    plt.rcParams.update({
-        "axes.facecolor":  "white",
-        "figure.facecolor":"white",
-        "axes.grid":       True,
-        "grid.color":      "#dddddd",
-        "grid.linewidth":  0.8,
-        "font.size":       13,
-        "axes.spines.top":   False,
-        "axes.spines.right": False,
-    })
-
 def _palette(clones):
     return {c: PALETTE[i % len(PALETTE)] for i, c in enumerate(clones)}
-
-def _to_b64(fig) -> str:
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=DPI, bbox_inches="tight")
-    buf.seek(0)
-    b64 = base64.b64encode(buf.read()).decode()
-    plt.close(fig)
-    return b64
 
 def _has_cyto(df):
     return all(c in df.columns for c in ("GFP_mean", "TMRM_mean"))
 
 def _active_fluor(df):
-    """Return the subset of FLUOR_CHANNELS whose intensity column is present."""
     return [(mc, rc, lbl) for mc, rc, lbl in FLUOR_CHANNELS if mc in df.columns]
+
+def _v(x):
+    """Scalar → Python float; NaN/inf/None → None (JSON-safe)."""
+    if x is None:
+        return None
+    try:
+        f = float(x)
+    except (TypeError, ValueError):
+        return None
+    return None if (math.isnan(f) or math.isinf(f)) else f
+
+def _to_list(series):
+    """Pandas Series → plain Python list with NaN/inf replaced by None."""
+    return [_v(x) for x in series.tolist()]
+
+def _std0(x):
+    """Std value: NaN → 0.0 (for error bar arrays)."""
+    v = _v(x)
+    return 0.0 if v is None else v
 
 
 # ── Loader ─────────────────────────────────────────────────────────────────────
@@ -226,7 +255,7 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float) -> pd.DataFrame
             if dt <= 0:
                 continue
 
-            v1, v2   = rp["VCD"],   rc["VCD"]
+            v1, v2     = rp["VCD"],    rc["VCD"]
             vol1, vol2 = rp["Vol_mL"], rc["Vol_mL"]
 
             if v1 > 0 and v2 > 0:
@@ -252,13 +281,13 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float) -> pd.DataFrame
 
             dgln = rp["Gln_mM"]*vol1 - rc["Gln_mM"]*vol2
             qgh  = dgln / dt / ntrap * MMOL_TO_PMOL
-            df.at[ic, QGLN_H]  = qgh
-            df.at[ic, QGLN_D]  = qgh * H_PER_DAY
+            df.at[ic, QGLN_H] = qgh
+            df.at[ic, QGLN_D] = qgh * H_PER_DAY
 
             dglu = rc["Glu_mM"]*vol2 - rp["Glu_mM"]*vol1
             qguh = dglu / dt / ntrap * MMOL_TO_PMOL
-            df.at[ic, QGLU_H]  = qguh
-            df.at[ic, QGLU_D]  = qguh * H_PER_DAY
+            df.at[ic, QGLU_H] = qguh
+            df.at[ic, QGLU_D] = qguh * H_PER_DAY
 
             glc_c = rp["Glc_g_L"]*vol1 - rc["Glc_g_L"]*vol2
             lac_p = rc["Lac_g_L"]*vol2 - rp["Lac_g_L"]*vol1
@@ -275,7 +304,7 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float) -> pd.DataFrame
             df.at[ic, IVCD_INT] = ivcd_int
             df.at[ic, IVCD_CUM] = ivcd_cum
 
-            ivc_int  = ntrap * dt
+            ivc_int  = 0.5 * (v1 * vol1 + v2 * vol2) * dt
             ivc_cum += ivc_int
             df.at[ic, IVC_INT] = ivc_int
             df.at[ic, IVC_CUM] = ivc_cum
@@ -302,7 +331,6 @@ def _summarise(df: pd.DataFrame) -> pd.DataFrame:
     records = []
     for (clone, rep), grp in exp.groupby(["Clone","Rep"], sort=False):
         row = {"Clone": clone, "Rep": rep}
-        # μ_exp: first-to-last VCD within the exponential window
         vcd_v = grp["VCD"].dropna()
         if len(vcd_v) >= 2:
             t0 = grp.loc[vcd_v.index[0],  "t_hr"]
@@ -317,29 +345,69 @@ def _summarise(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 
-# ── Plot generators ────────────────────────────────────────────────────────────
+# ── Plotly chart data builders ──────────────────────────────────────────────────
 
-def _scatter(df, clones, pal):
+def _ts_layout(ylabel, ylim=None, hovermode="closest"):
+    """Shared layout for time-series charts (scatter & lines)."""
+    layout = {
+        "plot_bgcolor":  "white",
+        "paper_bgcolor": "white",
+        "font":   {"size": 12},
+        "height": 380,
+        "margin": {"t": 20, "r": 20, "b": 55, "l": 65},
+        "xaxis": {
+            "title":     "Culture time (h)",
+            "range":     list(X_RANGE),
+            "showgrid":  True,
+            "gridcolor": "#e5e5e5",
+            "zeroline":  False,
+        },
+        "yaxis": {
+            "title":     ylabel,
+            "showgrid":  True,
+            "gridcolor": "#e5e5e5",
+            "zeroline":  False,
+        },
+        "legend":    {"title": {"text": "Clone"}},
+        "hovermode": hovermode,
+    }
+    if ylim is not None:
+        layout["yaxis"]["range"] = list(ylim)
+    return layout
+
+
+def _scatter_data(df, clones, pal):
+    """One scatter trace per clone, one chart per TS_SPEC."""
     out = {}
     for col, ylabel, fname, ylim in TS_SPECS:
         if col not in df.columns or df[col].isna().all():
             continue
-        fig, ax = plt.subplots(figsize=FIG_SIZE)
+        traces = []
         for c in clones:
-            sub = df[df["Clone"] == c]
-            ax.scatter(sub["t_hr"], sub[col], color=pal[c], label=c, s=60, alpha=0.8)
-        ax.set_xlabel("Culture time (h)")
-        ax.set_ylabel(ylabel)
-        ax.set_xlim(X_RANGE)
-        if ylim is not None:
-            ax.set_ylim(ylim)
-        ax.legend(title="Clone", bbox_to_anchor=(1.02,1), loc="upper left")
-        fig.tight_layout()
-        out[fname] = _to_b64(fig)
+            sub = df[df["Clone"] == c].dropna(subset=[col])
+            if sub.empty:
+                continue
+            traces.append({
+                "x":    _to_list(sub["t_hr"]),
+                "y":    _to_list(sub[col]),
+                "name": str(c),
+                "mode": "markers",
+                "type": "scatter",
+                "marker": {"color": pal[c], "size": 8, "opacity": 0.8},
+                "hovertemplate": (
+                    f"<b>{c}</b><br>"
+                    f"t: %{{x}} h<br>"
+                    f"{ylabel}: %{{y:.4g}}"
+                    "<extra></extra>"
+                ),
+            })
+        if traces:
+            out[fname] = {"traces": traces, "layout": _ts_layout(ylabel, ylim)}
     return out
 
 
-def _lines(df, clones, pal):
+def _lines_data(df, clones, pal):
+    """Mean ± SD line per clone, pre-feed rows only."""
     out = {}
     pre = df[~df["is_post_feed"]]
     for col, ylabel, fname, ylim in TS_SPECS:
@@ -347,137 +415,214 @@ def _lines(df, clones, pal):
             continue
         s = (pre.groupby(["Clone","t_hr"])[col]
              .agg(mean="mean", std="std").reset_index())
-        fig, ax = plt.subplots(figsize=FIG_SIZE)
+        traces = []
         for c in clones:
             sub = s[s["Clone"] == c].sort_values("t_hr")
             if sub.empty:
                 continue
-            ax.errorbar(sub["t_hr"], sub["mean"],
-                        yerr=sub["std"].fillna(0),
-                        color=pal[c], marker="o", markersize=6,
-                        linewidth=1.8, capsize=4, capthick=1.5,
-                        elinewidth=1.2, label=c)
-        ax.set_xlabel("Culture time (h)")
-        ax.set_ylabel(ylabel)
-        ax.set_xlim(X_RANGE)
-        if ylim is not None:
-            ax.set_ylim(ylim)
-        ax.legend(title="Clone", bbox_to_anchor=(1.02,1), loc="upper left")
-        fig.tight_layout()
-        out[fname] = _to_b64(fig)
+            traces.append({
+                "x":    _to_list(sub["t_hr"]),
+                "y":    _to_list(sub["mean"]),
+                "error_y": {
+                    "type":      "data",
+                    "array":     [_std0(v) for v in sub["std"].tolist()],
+                    "visible":   True,
+                    "thickness": 1.5,
+                    "width":     4,
+                },
+                "name": str(c),
+                "mode": "lines+markers",
+                "type": "scatter",
+                "line":   {"color": pal[c], "width": 1.8},
+                "marker": {"color": pal[c], "size": 6},
+                "hovertemplate": (
+                    f"<b>{c}</b><br>"
+                    f"t: %{{x}} h<br>"
+                    f"Mean: %{{y:.4g}}"
+                    "<extra></extra>"
+                ),
+            })
+        if traces:
+            out[fname] = {"traces": traces, "layout": _ts_layout(ylabel, ylim, "x unified")}
     return out
 
 
-def _bars(summary, clones, pal):
+def _bars_data(summary, clones, pal):
+    """Bar (mean ± SD) + replicate scatter overlay, one chart per BAR_SPEC."""
     out = {}
     for col, ylabel, fname in BAR_SPECS:
         if col not in summary.columns or summary[col].isna().all():
             continue
         agg = (summary.groupby("Clone")[col]
-               .agg(mean="mean", std="std").reindex(clones).reset_index())
-        fig, ax = plt.subplots(figsize=FIG_SIZE)
-        x = np.arange(len(clones))
-        ax.bar(x, agg["mean"], yerr=agg["std"].fillna(0),
-               color=[pal[c] for c in clones], capsize=5,
-               width=0.6, alpha=0.85, error_kw={"elinewidth":1.5})
-        for xi, c in enumerate(clones):
-            vals = summary.loc[summary["Clone"] == c, col].dropna()
-            ax.scatter(np.full(len(vals), xi), vals,
-                       color=pal[c], edgecolors="white", s=70, zorder=5)
-        ax.set_xticks(x)
-        ax.set_xticklabels(clones, rotation=30, ha="right")
-        ax.set_ylabel(ylabel)
-        ax.set_xlabel("Clone")
-        fig.tight_layout()
-        out[fname] = _to_b64(fig)
+               .agg(mean="mean", std="std").reindex(clones))
+        traces = []
+        for c in clones:
+            if c not in agg.index:
+                continue
+            mean_val = _v(float(agg.loc[c, "mean"]))
+            std_val  = _std0(agg.loc[c, "std"])
+            rep_vals = [_v(v) for v in
+                        summary.loc[summary["Clone"] == c, col].dropna().tolist()]
+
+            traces.append({
+                "type": "bar",
+                "x":    [str(c)],
+                "y":    [mean_val],
+                "error_y": {
+                    "type":      "data",
+                    "array":     [std_val],
+                    "visible":   True,
+                    "thickness": 1.5,
+                    "width":     6,
+                },
+                "name":        str(c),
+                "marker":      {"color": pal[c], "opacity": 0.85},
+                "showlegend":  True,
+                "legendgroup": str(c),
+                "hovertemplate": (
+                    f"<b>{c}</b><br>Mean: %{{y:.4g}}<extra></extra>"
+                ),
+            })
+            if rep_vals:
+                traces.append({
+                    "type": "scatter",
+                    "x":    [str(c)] * len(rep_vals),
+                    "y":    rep_vals,
+                    "mode": "markers",
+                    "name": str(c),
+                    "marker": {
+                        "color": pal[c],
+                        "size":  9,
+                        "line":  {"color": "white", "width": 1.5},
+                    },
+                    "showlegend":  False,
+                    "legendgroup": str(c),
+                    "hovertemplate": (
+                        f"<b>{c}</b><br>Replicate: %{{y:.4g}}<extra></extra>"
+                    ),
+                })
+        if not traces:
+            continue
+        layout = {
+            "plot_bgcolor":  "white",
+            "paper_bgcolor": "white",
+            "font":   {"size": 12},
+            "height": 380,
+            "margin": {"t": 20, "r": 20, "b": 55, "l": 65},
+            "xaxis": {
+                "title":         "Clone",
+                "type":          "category",
+                "categoryorder": "array",
+                "categoryarray": [str(c) for c in clones],
+                "showgrid":      False,
+            },
+            "yaxis": {
+                "title":     ylabel,
+                "showgrid":  True,
+                "gridcolor": "#e5e5e5",
+                "zeroline":  False,
+            },
+            "barmode": "group",
+            "legend":  {"title": {"text": "Clone"}},
+        }
+        out[fname] = {"traces": traces, "layout": layout}
     return out
 
 
-# phase → (marker, linestyle, short label)
-_PHASE_STYLE = {
-    PHASE_EXP:  ("o", "-",  "Exp"),
-    PHASE_STAT: ("^", "--", "Stat"),
-}
-
-def _make_corr_plot(df, xcol, ycol, xlabel, ylabel, clones, pal):
-    """
-    Core correlation plot: color = clone, marker/linestyle = phase.
-    One scatter + regression line per clone × phase combination.
-    Returns base64 PNG string, or None if no data.
-    """
+def _make_corr_data(df, xcol, ycol, xlabel, ylabel, clones, pal):
+    """Scatter + regression line per clone × phase. Returns {traces, layout} or None."""
     if PHASE not in df.columns:
         return None
     sub = df[[xcol, ycol, "Clone", PHASE]].dropna()
     if sub.empty:
         return None
 
-    fig, ax = plt.subplots(figsize=FIG_SIZE)
-
+    traces = []
     for clone in clones:
-        for phase, (marker, ls, short) in _PHASE_STYLE.items():
+        for phase, (symbol, dash, short) in _PHASE_STYLE.items():
             cd = sub[(sub["Clone"] == clone) & (sub[PHASE] == phase)]
             if cd.empty:
                 continue
-            ax.scatter(cd[xcol], cd[ycol],
-                       color=pal[clone], marker=marker,
-                       alpha=0.80, s=60, label=f"{clone} – {short}", zorder=3)
+            grp_key = f"{clone}_{phase}"
+
+            traces.append({
+                "x":    _to_list(cd[xcol]),
+                "y":    _to_list(cd[ycol]),
+                "name": f"{clone} – {short}",
+                "mode": "markers",
+                "type": "scatter",
+                "marker": {
+                    "color":  pal[clone],
+                    "symbol": symbol,
+                    "size":   8,
+                    "opacity": 0.8,
+                },
+                "legendgroup": grp_key,
+                "showlegend":  True,
+                "hovertemplate": (
+                    f"<b>{clone} ({short})</b><br>"
+                    f"{xlabel}: %{{x:.4g}}<br>"
+                    f"{ylabel}: %{{y:.4g}}"
+                    "<extra></extra>"
+                ),
+            })
             if len(cd) >= 3:
-                sl, ic, r, _, _ = stats.linregress(cd[xcol], cd[ycol])
-                xf = np.linspace(cd[xcol].min(), cd[xcol].max(), 100)
-                ax.plot(xf, sl*xf+ic,
-                        color=pal[clone], linestyle=ls, linewidth=1.8,
-                        label=f"R²={r**2:.2f}")
+                sl, ic_r, r, _, _ = stats.linregress(cd[xcol], cd[ycol])
+                x_fit = [float(cd[xcol].min()), float(cd[xcol].max())]
+                y_fit = [float(sl * x + ic_r) for x in x_fit]
+                traces.append({
+                    "x":    x_fit,
+                    "y":    y_fit,
+                    "name": f"R²={r**2:.2f} ({clone}/{short})",
+                    "mode": "lines",
+                    "type": "scatter",
+                    "line": {"color": pal[clone], "dash": dash, "width": 1.8},
+                    "legendgroup": grp_key,
+                    "showlegend":  True,
+                    "hoverinfo":   "skip",
+                })
 
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left",
-              fontsize=9, title="Clone – Phase")
-    fig.tight_layout()
-    return _to_b64(fig)
+    if not traces:
+        return None
+
+    layout = {
+        "plot_bgcolor":  "white",
+        "paper_bgcolor": "white",
+        "font":   {"size": 12},
+        "height": 400,
+        "margin": {"t": 20, "r": 20, "b": 55, "l": 65},
+        "xaxis": {
+            "title":     xlabel,
+            "showgrid":  True,
+            "gridcolor": "#e5e5e5",
+            "zeroline":  False,
+        },
+        "yaxis": {
+            "title":     ylabel,
+            "showgrid":  True,
+            "gridcolor": "#e5e5e5",
+            "zeroline":  False,
+        },
+        "legend": {
+            "title": {"text": "Clone – Phase"},
+            "font":  {"size": 10},
+        },
+    }
+    return {"traces": traces, "layout": layout}
 
 
-def _correlations(df, clones, pal):
+def _correlations_data(df, clones, pal):
     out = {}
     for xcol, ycol, xlabel, ylabel, fname in CORR_SPECS:
         if xcol not in df.columns or ycol not in df.columns:
             continue
-        b64 = _make_corr_plot(df, xcol, ycol, xlabel, ylabel, clones, pal)
-        if b64:
-            out[fname] = b64
+        result = _make_corr_data(df, xcol, ycol, xlabel, ylabel, clones, pal)
+        if result:
+            out[fname] = result
     return out
 
 
-# ── Column catalogue for custom correlations ───────────────────────────────────
-
-# (display label, internal column name)
-CUSTOM_CORR_COLS = [
-    ("VCD (cells/mL)",           "VCD"),
-    ("Viability (%)",            "Viab_pct"),
-    ("μ (1/h)",                  MU),
-    ("Glucose (g/L)",            "Glc_g_L"),
-    ("Lactate (g/L)",            "Lac_g_L"),
-    ("Glutamine (mM)",           "Gln_mM"),
-    ("Glutamate (mM)",           "Glu_mM"),
-    ("rP Titer (mg/L)",          "rP_mg_L"),
-    ("qGlc (pmol/cell/day)",     QGLC_PMOL),
-    ("qLac (pmol/cell/day)",     QLAC_PMOL),
-    ("qGln (pmol/cell/day)",     QGLN_D),
-    ("qGlu (pmol/cell/day)",     QGLU_D),
-    ("qP (pg/cell/day)",         QP),
-    ("Y Lac/Glc (g/g)",          Y_LG),
-    ("Y Glu/Gln (mol/mol)",      Y_GQ),
-    ("IVCD (cells·h/mL)",        IVCD_CUM),
-    ("GFP intensity (A.U.)",     "GFP_mean"),
-    ("TMRM intensity (A.U.)",    "TMRM_mean"),
-    ("dGFP/dt (A.U./h)",         DGFP),
-    ("dTMRM/dt (A.U./h)",        DTMRM),
-    ("BODIPY intensity (A.U.)",  "Bodipy_mean"),
-    ("CellROX intensity (A.U.)", "CellRox_mean"),
-    ("dBODIPY/dt (A.U./h)",      DBODIPY),
-    ("dCellROX/dt (A.U./h)",     DCELLROX),
-]
-
-# ── Analysis state (persists between run_analysis and make_custom_correlation) ─
+# ── Analysis state (persists for custom correlations) ──────────────────────────
 _state = {}
 
 
@@ -485,17 +630,17 @@ def make_custom_correlation(xcol, ycol):
     """
     Generate a single custom correlation plot using the last loaded dataset.
     Called from JavaScript after run_analysis has been executed.
-    Returns base64 PNG string.
+    Returns a {traces, layout} dict or None if insufficient data.
     """
     if not _state:
         raise RuntimeError("No analysis loaded. Run run_analysis() first.")
     label_map = {col: label for label, col in CUSTOM_CORR_COLS}
     xlabel = label_map.get(xcol, xcol)
     ylabel = label_map.get(ycol, ycol)
-    return _make_corr_plot(
+    return _make_corr_data(
         _state["df"], xcol, ycol, xlabel, ylabel,
         _state["clones"], _state["pal"],
-    ) or ""
+    )
 
 
 # ── Public entry point ─────────────────────────────────────────────────────────
@@ -509,13 +654,13 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
         info           – dataset metadata
         processed_csv  – full kinetics CSV as string
         summary_csv    – exp-phase summary CSV as string
-        plots          – {scatter, lines, bars, correlations} → {fname: base64_png}
+        avail_cols     – list of [label, colname] for custom correlation selectors
+        plots          – {scatter, lines, bars, correlations}
+                         each value is {fname: {traces, layout}} for Plotly.js
     """
     def cb(msg, pct):
         if progress_cb is not None:
             progress_cb(msg, pct)
-
-    _setup_mpl()
 
     cb("Loading and cleaning data…", 5)
     df = _load(csv_text, bool(skip_first_row))
@@ -527,27 +672,25 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
     clones = df_kin["Clone"].unique().tolist()
     pal    = _palette(clones)
 
-    # Persist state for on-demand custom correlations
     _state.clear()
     _state.update({"df": df_kin, "clones": clones, "pal": pal})
 
-    # Available columns for custom correlation selectors
     avail_cols = [
         [label, col] for label, col in CUSTOM_CORR_COLS
         if col in df_kin.columns and not df_kin[col].isna().all()
     ]
 
-    cb("Generating scatter plots…", 35)
-    scatter = _scatter(df_kin, clones, pal)
+    cb("Building scatter charts…", 35)
+    scatter = _scatter_data(df_kin, clones, pal)
 
-    cb("Generating line plots…", 55)
-    lines   = _lines(df_kin, clones, pal)
+    cb("Building line charts…", 52)
+    lines   = _lines_data(df_kin, clones, pal)
 
-    cb("Generating bar charts…", 72)
-    bars    = _bars(summary, clones, pal)
+    cb("Building bar charts…", 68)
+    bars    = _bars_data(summary, clones, pal)
 
-    cb("Generating correlation plots…", 88)
-    corr    = _correlations(df_kin, clones, pal)
+    cb("Building correlation charts…", 84)
+    corr    = _correlations_data(df_kin, clones, pal)
 
     cb("Done!", 100)
 
