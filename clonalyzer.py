@@ -661,7 +661,7 @@ def _make_corr_data(df, xcol, ycol, xlabel, ylabel, clones, pal):
                     "<extra></extra>"
                 ),
             })
-            if len(cd) >= 3:
+            if len(cd) >= 3 and cd[xcol].nunique() > 1:
                 sl, ic_r, r, _, _ = stats.linregress(cd[xcol], cd[ycol])
                 x_fit = [float(cd[xcol].min()), float(cd[xcol].max())]
                 y_fit = [float(sl * x + ic_r) for x in x_fit]
