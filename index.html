@@ -603,16 +603,15 @@
             integral of total viable cells (ITVC):
           </p>
           <div class="eq-block">
-            $$q_S = \frac{M_{S,1} - M_{S,2}}{\Delta t \cdot \bar{N}^{\text{trap}}} \quad
-            \bar{N}^{\text{trap}} = \frac{1}{2}(VCD_1 V_1 + VCD_2 V_2) \times 10^3$$
+            $$q_S = \frac{M_{S,1} - M_{S,2}}{\Delta ITVC}$$
           </div>
           <p>
-            The ITVC (Integral Total Viable Cells) accumulates the total number of
-            viable cells over time, accounting for volume:
+            where $\Delta ITVC$ is the trapezoidal integral of total viable cells in
+            the interval:
           </p>
           <div class="eq-block">
-            $$ITVC_{\text{interval}} = \frac{VCD_1 V_1 + VCD_2 V_2}{2} \cdot \Delta t
-            \quad [\text{cells·h}]$$
+            $$\Delta ITVC = \frac{TC_1 + TC_2}{2} \cdot \Delta t
+            \quad TC = VCD \times V \quad [\text{cells·h}]$$
           </div>
 
           <h6>6.2 Constant-volume scenario (concentration-based)</h6>
@@ -622,14 +621,13 @@
             The formulas reduce to:
           </p>
           <div class="eq-block">
-            $$q_S = \frac{C_{S,1} - C_{S,2}}{\Delta t \cdot \bar{N}^{\text{trap}}} \quad
-            \bar{N}^{\text{trap}} = \frac{1}{2}(VCD_1 + VCD_2) \times 10^3$$
+            $$q_S = \frac{C_{S,1} - C_{S,2}}{\Delta IVCD}$$
           </div>
           <p>
-            The IVCD (Integral Viable Cell Density) is the normalizer:
+            where $\Delta IVCD$ is the trapezoidal integral of VCD in the interval:
           </p>
           <div class="eq-block">
-            $$IVCD_{\text{interval}} = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t
+            $$\Delta IVCD = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t
             \quad [\text{cells·h/mL}]$$
           </div>
           <p>
