@@ -410,18 +410,28 @@
           <!-- 4. Kinetic calculations -->
           <h5>4. Kinetic calculations</h5>
 
-          <h6>4.1 Trapezoid average cell count</h6>
+          <h6>4.1 Células totales (TC) e integral de normalización</h6>
           <p>
-            All specific rates are normalized by the average number of viable cells
-            present during the interval. Clonalyzer uses a trapezoid approximation,
-            which is more accurate than using a single endpoint:
+            Para cada intervalo entre dos timepoints consecutivos se calculan las
+            <strong>células totales viables</strong> ($TC$) multiplicando la densidad celular
+            por el volumen:
           </p>
           <div class="eq-block">
-            $$\bar{N}^{\text{trap}} = \frac{1}{2}\left(VCD_1 \cdot V_1 + VCD_2 \cdot V_2\right) \times 10^3$$
+            $$TC = VCD \times V$$
           </div>
           <p>
-            where $VCD$ is in cells/mL, $V$ is in mL, and the factor $10^3$ converts
-            mL to L so that $\bar{N}^{\text{trap}}$ is in <strong>cells</strong>.
+            La historia integrada de biomasa viva en ese intervalo se aproxima con la
+            regla del trapecio. Según el escenario:
+          </p>
+          <div class="eq-block">
+            $$\Delta ITVC = \frac{TC_1 + TC_2}{2} \cdot \Delta t \quad [\text{cells·h}]
+            \qquad \text{(variable volume)}$$
+            $$\Delta IVCD = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t \quad [\text{cells·h/mL}]
+            \qquad \text{(constant volume)}$$
+          </div>
+          <p>
+            Cuando el volumen es constante, $TC = VCD$ (con $V = 1$) y $\Delta ITVC = \Delta IVCD$.
+            El denominador unificado se denomina $\Delta ITVC$ en el código.
           </p>
 
           <h6>4.2 Specific growth rate (μ)</h6>
@@ -429,23 +439,24 @@
             $$\mu = \frac{\ln(VCD_2 / VCD_1)}{\Delta t} \quad [\text{h}^{-1}]$$
           </div>
           <p>
-            Calculated only when both $VCD$ values are positive. For a batch culture this
-            represents the instantaneous growth rate; for fed-batch it is computed on
-            the same intervals (skipping the feed dilution step).
+            Calculated only when both $VCD$ values are positive. Always uses VCD
+            (concentration), never total cells — see section 6.3 for the reason.
           </p>
 
           <h6>4.3 Specific metabolite rates</h6>
           <p>
-            The general mass-balance for any metabolite $S$ (concentration in g/L or mM,
-            volume in mL) is:
+            All specific rates follow the general mass-balance formula
+            (PDF §3.4 / §2.3):
           </p>
           <div class="eq-block">
-            $$q_S = \frac{\Delta(S \cdot V)}{\Delta t \cdot \bar{N}^{\text{trap}}}$$
+            $$q_i = \frac{M_{i,1} - M_{i,2}}{\Delta ITVC}$$
           </div>
           <p>
+            where $M_i = C_i \times V$ is the total mass (or moles) of metabolite $i$,
+            and $\Delta ITVC$ is the trapezoidal integral defined above.
             The sign convention is: <strong>positive = consumption</strong> (glucose,
             glutamine), <strong>positive = production</strong> (lactate, glutamate,
-            recombinant protein). The specific rates computed are:
+            recombinant protein).
           </p>
 
           <div class="table-responsive">
@@ -458,27 +469,27 @@
               <tbody>
                 <tr>
                   <td>qGlc</td>
-                  <td>$(Glc_1 V_1 - Glc_2 V_2)\,/\,\Delta t\,/\,\bar{N}$</td>
+                  <td>$(M_{Glc,1} - M_{Glc,2})\,/\,\Delta ITVC$</td>
                   <td>pg/cell/day</td>
                 </tr>
                 <tr>
                   <td>qLac</td>
-                  <td>$(Lac_2 V_2 - Lac_1 V_1)\,/\,\Delta t\,/\,\bar{N}$</td>
+                  <td>$(M_{Lac,2} - M_{Lac,1})\,/\,\Delta ITVC$</td>
                   <td>pg/cell/day</td>
                 </tr>
                 <tr>
                   <td>qP</td>
-                  <td>$(P_2 V_2 - P_1 V_1)\,/\,\Delta t\,/\,\bar{N}$</td>
+                  <td>$(M_{rP,2} - M_{rP,1})\,/\,\Delta ITVC$</td>
                   <td>pg/cell/day</td>
                 </tr>
                 <tr>
                   <td>qGln</td>
-                  <td>$(Gln_1 V_1 - Gln_2 V_2)\,/\,\Delta t\,/\,\bar{N}$</td>
+                  <td>$(M_{Gln,1} - M_{Gln,2})\,/\,\Delta ITVC$</td>
                   <td>pmol/cell/h · pmol/cell/day</td>
                 </tr>
                 <tr>
                   <td>qGlu</td>
-                  <td>$(Glu_2 V_2 - Glu_1 V_1)\,/\,\Delta t\,/\,\bar{N}$</td>
+                  <td>$(M_{Glu,2} - M_{Glu,1})\,/\,\Delta ITVC$</td>
                   <td>pmol/cell/h · pmol/cell/day</td>
                 </tr>
               </tbody>
@@ -487,26 +498,28 @@
 
           <h6>4.4 Metabolic yields</h6>
           <div class="eq-block">
-            $$Y_{Lac/Glc} = \frac{\Delta Lac \cdot V}{\Delta Glc \cdot V} \quad [\text{g/g}]
+            $$Y_{Lac/Glc} = \frac{M_{Lac,2} - M_{Lac,1}}{M_{Glc,1} - M_{Glc,2}} \quad [\text{g/g}]
             \qquad
-            Y_{Glu/Gln} = \frac{\Delta Glu \cdot V}{\Delta Gln \cdot V} \quad [\text{mol/mol}]$$
+            Y_{Glu/Gln} = \frac{M_{Glu,2} - M_{Glu,1}}{M_{Gln,1} - M_{Gln,2}} \quad [\text{mol/mol}]$$
           </div>
           <p>
-            Yields are computed only when the denominator (consumed substrate) is
-            positive to avoid division by zero.
+            Yields are computed only when the denominator (consumed substrate mass) is
+            positive. The $V/1000$ factor cancels in the ratio, so yields are
+            independent of volume.
           </p>
 
-          <h6>4.5 Integral viable cell density and cell count (IVCD / IVCC)</h6>
+          <h6>4.5 IVCD e ITVC (integrales de biomasa)</h6>
           <p>
-            Cumulative cell exposure, used for productivity normalization:
+            Se acumulan como suma de integrales trapezoidales sucesivas:
           </p>
           <div class="eq-block">
-            $$IVCD_{\text{interval}} = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t \quad [\text{cells·h/mL}]$$
-            $$IVCC_{\text{interval}} = \bar{N}^{\text{trap}} \cdot \Delta t \quad [\text{cells·h}]$$
+            $$IVCD_2 = IVCD_1 + \frac{VCD_1 + VCD_2}{2} \cdot \Delta t \quad [\text{cells·h/mL}]$$
+            $$ITVC_2 = ITVC_1 + \frac{TC_1 + TC_2}{2} \cdot \Delta t \quad [\text{cells·h}]$$
           </div>
           <p>
-            Both are summed cumulatively across all intervals within each
-            Clone × Replicate track.
+            IVCD se calcula siempre. ITVC solo se calcula en escenario
+            <span class="badge bg-info text-dark">Variable volume</span>
+            ya que requiere datos de $V$.
           </p>
 
           <h6>4.6 Fluorescence rates (optional)</h6>
