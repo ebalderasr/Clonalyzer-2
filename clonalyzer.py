@@ -384,10 +384,9 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
                 M_Gln2 = rc["Gln_mM"]  * vol2 / 1000
                 M_Glu1 = rp["Glu_mM"]  * vol1 / 1000   # [mmol]
                 M_Glu2 = rc["Glu_mM"]  * vol2 / 1000
-                rP1 = rp["rP_mg_L"] if pd.notna(rp["rP_mg_L"]) else 0.0
-                rP2 = rc["rP_mg_L"] if pd.notna(rc["rP_mg_L"]) else 0.0
-                M_rP1 = rP1 * vol1 / 1000               # [mg]
-                M_rP2 = rP2 * vol2 / 1000
+                # NaN propagates: if either endpoint lacks rP, qP stays NaN for this interval
+                M_rP1 = rp["rP_mg_L"] * vol1 / 1000    # [mg]; NaN if measurement missing
+                M_rP2 = rc["rP_mg_L"] * vol2 / 1000
 
                 # q_i = ΔM_i / ΔITVC  with unit conversions to pg/cell/day
                 # [g]    / [cells·h] × 10^12 pg/g    × 24 h/day  → pg/cell/day
@@ -431,9 +430,8 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
                 dLac = rc["Lac_g_L"] - rp["Lac_g_L"]   # [g/L]   positive = produced
                 dGln = rp["Gln_mM"]  - rc["Gln_mM"]    # [mM]    positive = consumed
                 dGlu = rc["Glu_mM"]  - rp["Glu_mM"]    # [mM]    positive = produced
-                rP1  = rp["rP_mg_L"] if pd.notna(rp["rP_mg_L"]) else 0.0
-                rP2  = rc["rP_mg_L"] if pd.notna(rc["rP_mg_L"]) else 0.0
-                drP  = rP2 - rP1                         # [mg/L]  positive = produced
+                # NaN propagates: if either endpoint lacks rP, qP stays NaN for this interval
+                drP  = rc["rP_mg_L"] - rp["rP_mg_L"]   # [mg/L]  positive = produced; NaN if missing
 
                 # q_i = ΔC_i / ΔIVCD  with unit conversions to pg/cell/day
                 # VCD is in cells/mL and concentrations are in /L, so the
@@ -617,8 +615,9 @@ def _lines_data(df, clones, pal, fluor_set=None):
                 "name": str(c),
                 "mode": "lines+markers",
                 "type": "scatter",
-                "line":   {"color": pal[c], "width": 1.8},
-                "marker": {"color": pal[c], "size": 6},
+                "line":         {"color": pal[c], "width": 1.8},
+                "marker":       {"color": pal[c], "size": 6},
+                "connectgaps":  True,
                 "hovertemplate": (
                     f"<b>{c}</b><br>"
                     f"t: %{{x}} h<br>"
@@ -714,6 +713,21 @@ def _bars_data(summary, clones, pal, fluor_set=None):
             "barmode": "group",
             "legend":  {"title": {"text": "Clone"}},
         }
+        # Subtle warning when some replicates lack this metric in the exp window
+        # (intervals with missing measurements produce NaN rates → mean(skipna=True)
+        # uses fewer intervals, which changes the result without alerting the user)
+        if summary[col].isna().any():
+            n_miss = int(summary[col].isna().sum())
+            n_tot  = len(summary)
+            layout["margin"]["b"] = 72   # extra bottom room for the note
+            layout["annotations"] = [{
+                "text":     f"⚠ {n_miss}/{n_tot} rep(s) missing measurements in exp. window",
+                "xref":     "paper", "yref":     "paper",
+                "x": 0.0,  "y": -0.18,
+                "xanchor": "left", "yanchor": "top",
+                "showarrow": False,
+                "font":     {"size": 9, "color": "#b45309"},
+            }]
         group[fname] = {"traces": traces, "layout": layout}
       if group:
           out[f"__section__{section_title}"] = None
