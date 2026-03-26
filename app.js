@@ -172,10 +172,14 @@ function displayResults(r) {
     renderPlotTab("tab-lines",        r.plots.lines);
     renderPlotTab("tab-bars",         r.plots.bars);
     renderPlotTab("tab-correlations", r.plots.correlations);
-    // Activate first tab and resize its charts
     document.querySelector("#plot-tabs .nav-link")?.click();
     populateCustomCorrSelects(r.avail_cols || []);
     document.getElementById("custom-corr-gallery").innerHTML = "";
+    // Resize first-tab charts after the browser has finished layout
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        document.querySelectorAll(".tab-pane.active .js-plotly-plot")
+            .forEach(div => Plotly.Plots.resize(div));
+    }));
 }
 
 function renderInfoCards(info) {
