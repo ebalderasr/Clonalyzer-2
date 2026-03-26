@@ -410,119 +410,192 @@
           <!-- 4. Kinetic calculations -->
           <h5>4. Kinetic calculations</h5>
 
-          <h6>4.1 Células totales (TC) e integral de normalización</h6>
           <p>
-            Para cada intervalo entre dos timepoints consecutivos se calculan las
-            <strong>células totales viables</strong> ($TC$) multiplicando la densidad celular
-            por el volumen:
-          </p>
-          <div class="eq-block">
-            $$TC = VCD \times V$$
-          </div>
-          <p>
-            La historia integrada de biomasa viva en ese intervalo se aproxima con la
-            regla del trapecio. Según el escenario:
-          </p>
-          <div class="eq-block">
-            $$\Delta ITVC = \frac{TC_1 + TC_2}{2} \cdot \Delta t \quad [\text{cells·h}]
-            \qquad \text{(variable volume)}$$
-            $$\Delta IVCD = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t \quad [\text{cells·h/mL}]
-            \qquad \text{(constant volume)}$$
-          </div>
-          <p>
-            Cuando el volumen es constante, $TC = VCD$ (con $V = 1$) y $\Delta ITVC = \Delta IVCD$.
-            El denominador unificado se denomina $\Delta ITVC$ en el código.
+            All kinetic parameters are computed interval-by-interval between consecutive
+            timepoints within each Clone × Replicate track. Two independent calculation
+            paths exist depending on whether culture volume data are available.
           </p>
 
-          <h6>4.2 Specific growth rate (μ)</h6>
-          <div class="eq-block">
-            $$\mu = \frac{\ln(VCD_2 / VCD_1)}{\Delta t} \quad [\text{h}^{-1}]$$
-          </div>
+          <h6>4.1 Specific growth rate (μ)</h6>
           <p>
-            Calculated only when both $VCD$ values are positive. Always uses VCD
-            (concentration), never total cells — see section 6.3 for the reason.
-          </p>
-
-          <h6>4.3 Specific metabolite rates</h6>
-          <p>
-            All specific rates follow the general mass-balance formula
-            (PDF §3.4 / §2.3):
+            Cell growth follows first-order kinetics during exponential phase. Integrating
+            $dX/dt = \mu X$ between two timepoints gives the analytical solution:
           </p>
           <div class="eq-block">
-            $$q_i = \frac{M_{i,1} - M_{i,2}}{\Delta ITVC}$$
+            $$\mu = \frac{\ln(VCD_2) - \ln(VCD_1)}{t_2 - t_1} \quad [\text{h}^{-1}]$$
           </div>
           <p>
-            where $M_i = C_i \times V$ is the total mass (or moles) of metabolite $i$,
-            and $\Delta ITVC$ is the trapezoidal integral defined above.
-            The sign convention is: <strong>positive = consumption</strong> (glucose,
-            glutamine), <strong>positive = production</strong> (lactate, glutamate,
-            recombinant protein).
+            μ always uses VCD (a concentration), never total cell count. Using total cells
+            would produce spurious negative μ values whenever the culture volume decreases
+            (e.g. sampling), because the cell count drops even though the cells are
+            actively dividing. VCD is independent of volume changes.
           </p>
 
-          <div class="table-responsive">
+          <!-- 4.2 Constant volume -->
+          <h6>4.2 Constant-volume scenario — concentration-based calculations</h6>
+          <p>
+            When the culture volume does not change significantly between timepoints
+            (or when <code>Vol_mL</code> is not provided), nutrient consumption and
+            metabolite production are tracked directly from concentration changes.
+          </p>
+
+          <h6 class="text-muted fw-normal ms-3">4.2.1 Integral Viable Cell Density (IVCD)</h6>
+          <p>
+            Specific rates are normalized by the total biomass exposure during the
+            interval, approximated with the trapezoid rule:
+          </p>
+          <div class="eq-block">
+            $$IVCD_2 = IVCD_1 + \frac{VCD_1 + VCD_2}{2} \cdot \Delta t \quad \left[\frac{\text{cells} \cdot \text{h}}{\text{mL}}\right]$$
+          </div>
+          <p>
+            IVCD represents the "total cellular effort" invested up to time $t$. It is the
+            fundamental denominator for specific rate calculations.
+          </p>
+
+          <h6 class="text-muted fw-normal ms-3">4.2.2 Specific consumption and production rates</h6>
+          <p>
+            For any metabolite, the specific rate is the concentration change normalized
+            by the IVCD increment in that same interval:
+          </p>
+          <div class="eq-block">
+            $$q_i = \frac{\Delta C_i}{\Delta IVCD} \quad \text{where} \quad \Delta IVCD = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t$$
+          </div>
+
+          <div class="table-responsive mb-2">
             <table class="table table-sm table-bordered">
               <thead class="table-light">
-                <tr>
-                  <th>Rate</th><th>Formula</th><th>Units</th>
-                </tr>
+                <tr><th>Rate</th><th>Formula</th><th>Sign</th><th>Units</th></tr>
               </thead>
               <tbody>
                 <tr>
                   <td>qGlc</td>
-                  <td>$(M_{Glc,1} - M_{Glc,2})\,/\,\Delta ITVC$</td>
-                  <td>pg/cell/day</td>
+                  <td>$(Glc_1 - Glc_2)\,/\,\Delta IVCD$</td>
+                  <td>+ consumed</td><td>pg/cell/day</td>
                 </tr>
                 <tr>
                   <td>qLac</td>
-                  <td>$(M_{Lac,2} - M_{Lac,1})\,/\,\Delta ITVC$</td>
-                  <td>pg/cell/day</td>
+                  <td>$(Lac_2 - Lac_1)\,/\,\Delta IVCD$</td>
+                  <td>+ produced</td><td>pg/cell/day</td>
                 </tr>
                 <tr>
                   <td>qP</td>
-                  <td>$(M_{rP,2} - M_{rP,1})\,/\,\Delta ITVC$</td>
-                  <td>pg/cell/day</td>
+                  <td>$(rP_2 - rP_1)\,/\,\Delta IVCD$</td>
+                  <td>+ produced</td><td>pg/cell/day</td>
                 </tr>
                 <tr>
                   <td>qGln</td>
-                  <td>$(M_{Gln,1} - M_{Gln,2})\,/\,\Delta ITVC$</td>
-                  <td>pmol/cell/h · pmol/cell/day</td>
+                  <td>$(Gln_1 - Gln_2)\,/\,\Delta IVCD$</td>
+                  <td>+ consumed</td><td>pmol/cell/h</td>
                 </tr>
                 <tr>
                   <td>qGlu</td>
-                  <td>$(M_{Glu,2} - M_{Glu,1})\,/\,\Delta ITVC$</td>
-                  <td>pmol/cell/h · pmol/cell/day</td>
+                  <td>$(Glu_2 - Glu_1)\,/\,\Delta IVCD$</td>
+                  <td>+ produced</td><td>pmol/cell/h</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <h6>4.4 Metabolic yields</h6>
+          <h6 class="text-muted fw-normal ms-3">4.2.3 Metabolic yields</h6>
+          <div class="eq-block">
+            $$Y_{Lac/Glc} = \frac{Lac_2 - Lac_1}{Glc_1 - Glc_2} \quad [\text{g/g}]
+            \qquad
+            Y_{Glu/Gln} = \frac{Glu_2 - Glu_1}{Gln_1 - Gln_2} \quad [\text{mol/mol}]$$
+          </div>
+          <p>
+            Computed only when the denominator (substrate consumed) is positive.
+          </p>
+
+          <!-- 4.3 Variable volume -->
+          <h6>4.3 Variable-volume scenario — mass-balance calculations</h6>
+          <p>
+            When culture volume changes between timepoints — due to sampling, evaporation,
+            or medium addition in fed-batch — measuring concentration alone is misleading.
+            A drop in glucose concentration could reflect cellular consumption <em>or</em>
+            simple dilution from a feed. To isolate the biological signal, all calculations
+            migrate to <strong>total masses and total cell counts</strong> inside the reactor.
+          </p>
+
+          <h6 class="text-muted fw-normal ms-3">4.3.1 Total viable cells and ITVC</h6>
+          <p>
+            The total number of viable cells in the reactor at any timepoint is:
+          </p>
+          <div class="eq-block">
+            $$TC = VCD \times V$$
+          </div>
+          <p>
+            The integrated biomass exposure is then the trapezoid integral of $TC$:
+          </p>
+          <div class="eq-block">
+            $$ITVC_2 = ITVC_1 + \frac{TC_1 + TC_2}{2} \cdot \Delta t \quad [\text{cells} \cdot \text{h}]$$
+          </div>
+          <p>
+            Unlike IVCD, ITVC has no per-volume denominator — it counts the actual cells
+            that performed biological work inside the reactor.
+          </p>
+
+          <h6 class="text-muted fw-normal ms-3">4.3.2 Total masses and specific rates</h6>
+          <p>
+            The total mass (or moles) of each metabolite in the reactor is:
+          </p>
+          <div class="eq-block">
+            $$M_i = C_i \times V$$
+          </div>
+          <p>
+            The specific rate is then the change in total mass normalized by the ITVC
+            increment — a rigorous mass balance that eliminates any dilution artefact:
+          </p>
+          <div class="eq-block">
+            $$q_i = \frac{\Delta M_i}{\Delta ITVC} \quad \text{where} \quad \Delta ITVC = \frac{TC_1 + TC_2}{2} \cdot \Delta t$$
+          </div>
+
+          <div class="table-responsive mb-2">
+            <table class="table table-sm table-bordered">
+              <thead class="table-light">
+                <tr><th>Rate</th><th>Formula</th><th>Sign</th><th>Units</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>qGlc</td>
+                  <td>$(M_{Glc,1} - M_{Glc,2})\,/\,\Delta ITVC$</td>
+                  <td>+ consumed</td><td>pg/cell/day</td>
+                </tr>
+                <tr>
+                  <td>qLac</td>
+                  <td>$(M_{Lac,2} - M_{Lac,1})\,/\,\Delta ITVC$</td>
+                  <td>+ produced</td><td>pg/cell/day</td>
+                </tr>
+                <tr>
+                  <td>qP</td>
+                  <td>$(M_{rP,2} - M_{rP,1})\,/\,\Delta ITVC$</td>
+                  <td>+ produced</td><td>pg/cell/day</td>
+                </tr>
+                <tr>
+                  <td>qGln</td>
+                  <td>$(M_{Gln,1} - M_{Gln,2})\,/\,\Delta ITVC$</td>
+                  <td>+ consumed</td><td>pmol/cell/h</td>
+                </tr>
+                <tr>
+                  <td>qGlu</td>
+                  <td>$(M_{Glu,2} - M_{Glu,1})\,/\,\Delta ITVC$</td>
+                  <td>+ produced</td><td>pmol/cell/h</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h6 class="text-muted fw-normal ms-3">4.3.3 Metabolic yields</h6>
           <div class="eq-block">
             $$Y_{Lac/Glc} = \frac{M_{Lac,2} - M_{Lac,1}}{M_{Glc,1} - M_{Glc,2}} \quad [\text{g/g}]
             \qquad
             Y_{Glu/Gln} = \frac{M_{Glu,2} - M_{Glu,1}}{M_{Gln,1} - M_{Gln,2}} \quad [\text{mol/mol}]$$
           </div>
           <p>
-            Yields are computed only when the denominator (consumed substrate mass) is
-            positive. The $V/1000$ factor cancels in the ratio, so yields are
-            independent of volume.
+            Using masses instead of concentrations ensures that yields are not distorted
+            by volume changes between timepoints.
           </p>
 
-          <h6>4.5 IVCD e ITVC (integrales de biomasa)</h6>
-          <p>
-            Se acumulan como suma de integrales trapezoidales sucesivas:
-          </p>
-          <div class="eq-block">
-            $$IVCD_2 = IVCD_1 + \frac{VCD_1 + VCD_2}{2} \cdot \Delta t \quad [\text{cells·h/mL}]$$
-            $$ITVC_2 = ITVC_1 + \frac{TC_1 + TC_2}{2} \cdot \Delta t \quad [\text{cells·h}]$$
-          </div>
-          <p>
-            IVCD se calcula siempre. ITVC solo se calcula en escenario
-            <span class="badge bg-info text-dark">Variable volume</span>
-            ya que requiere datos de $V$.
-          </p>
-
-          <h6>4.6 Fluorescence rates (optional)</h6>
+          <h6>4.4 Fluorescence rates (optional)</h6>
           <p>
             When GFP and TMRM columns are present, the rate of change is computed as
             a simple finite difference:
