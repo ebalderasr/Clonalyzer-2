@@ -97,6 +97,22 @@ header .subtitle {
   width: 100%;
   min-height: 380px;
 }
+
+/* Section divider inside plot grids */
+.plots-section-header {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 0.5rem 0 0.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.25rem;
+  margin-top: 1rem;
+}
+.col-12:first-child .plots-section-header {
+  margin-top: 0;
+}
 .nav-tabs .nav-link {
   color: var(--muted);
   border-radius: 8px 8px 0 0;

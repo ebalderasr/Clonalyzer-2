@@ -80,49 +80,74 @@ FLUOR_CHANNELS = [
     ("CellRox_mean", DCELLROX, "CellROX"),
 ]
 
-# plot specs: (column, y-label, filename-stem, ylim or None)
-TS_SPECS = [
-    ("VCD",          "VCD (cells/mL)",           "01_VCD",         None),
-    ("Viab_pct",     "Viability (%)",             "02_Viability",   [0, 100]),
-    (MU,             "μ (1/h)",                   "03_Mu",          None),
-    ("Glc_g_L",      "Glucose (g/L)",             "04_Glc",         None),
-    ("Lac_g_L",      "Lactate (g/L)",             "05_Lac",         None),
-    ("Gln_mM",       "Glutamine (mM)",            "06_Gln",         None),
-    ("Glu_mM",       "Glutamate (mM)",            "07_Glu",         None),
-    ("rP_mg_L",      "rP Titer (mg/L)",           "08_Product",     None),
-    (QGLC_PMOL,      "qGlc (pmol/cell/day)",      "09_qGlc",        None),
-    (QLAC_PMOL,      "qLac (pmol/cell/day)",      "10_qLac",        None),
-    (QGLN_D,         "qGln (pmol/cell/day)",      "11_qGln",        None),
-    (QGLU_D,         "qGlu (pmol/cell/day)",      "12_qGlu",        None),
-    (QP,             "qP (pg/cell/day)",          "13_qP",          None),
-    (Y_LG,           "Y Lac/Glc (g/g)",           "14_YLacGlc",     None),
-    (Y_GQ,           "Y Glu/Gln (mol/mol)",       "15_YGluGln",     None),
-    (IVCD_CUM,       "IVCD (cells·h/mL)",          "16_IVCD",        None),
-    (ITVC_CUM,       "ITVC (cells·h)",             "16b_ITVC",       None),
-    ("GFP_mean",     "GFP intensity (A.U.)",      "17_GFP",         None),
-    ("TMRM_mean",    "TMRM intensity (A.U.)",     "18_TMRM",        None),
-    (DGFP,           "dGFP/dt (A.U./h)",          "19_dGFP_dt",     None),
-    (DTMRM,          "dTMRM/dt (A.U./h)",         "20_dTMRM_dt",    None),
-    ("Bodipy_mean",  "BODIPY intensity (A.U.)",   "21_Bodipy",      None),
-    ("CellRox_mean", "CellROX intensity (A.U.)",  "22_CellRox",     None),
-    (DBODIPY,        "dBODIPY/dt (A.U./h)",       "23_dBodipy_dt",  None),
-    (DCELLROX,       "dCellROX/dt (A.U./h)",      "24_dCellRox_dt", None),
+# plot specs grouped for visual separation in the UI.
+# Each group: (section_title, [(column, y-label, filename-stem, ylim or None), ...])
+TS_GROUPS = [
+    ("Primary Variables", [
+        ("VCD",         "VCD (cells/mL)",          "01_VCD",       None),
+        ("Viab_pct",    "Viability (%)",            "02_Viability", [0, 100]),
+        ("Glc_g_L",     "Glucose (g/L)",            "04_Glc",       None),
+        ("Lac_g_L",     "Lactate (g/L)",            "05_Lac",       None),
+        ("Gln_mM",      "Glutamine (mM)",           "06_Gln",       None),
+        ("Glu_mM",      "Glutamate (mM)",           "07_Glu",       None),
+        ("rP_mg_L",     "rP Titer (mg/L)",          "08_Product",   None),
+        (VOL_COL,       "Volume (mL)",              "00b_Vol",      None),
+    ]),
+    ("Kinetic Parameters", [
+        (MU,            "μ (1/h)",                  "03_Mu",        None),
+        (QGLC_PMOL,     "qGlc (pmol/cell/day)",     "09_qGlc",      None),
+        (QLAC_PMOL,     "qLac (pmol/cell/day)",     "10_qLac",      None),
+        (QGLN_D,        "qGln (pmol/cell/day)",     "11_qGln",      None),
+        (QGLU_D,        "qGlu (pmol/cell/day)",     "12_qGlu",      None),
+        (QP,            "qP (pg/cell/day)",         "13_qP",        None),
+        (Y_LG,          "Y Lac/Glc (g/g)",          "14_YLacGlc",   None),
+        (Y_GQ,          "Y Glu/Gln (mol/mol)",      "15_YGluGln",   None),
+        (IVCD_CUM,      "IVCD (cells·h/mL)",        "16_IVCD",      None),
+        (ITVC_CUM,      "ITVC (cells·h)",           "16b_ITVC",     None),
+    ]),
+    ("Fluorescence – Intensity", [
+        ("GFP_mean",    "GFP intensity (A.U.)",     "17_GFP",       None),
+        ("TMRM_mean",   "TMRM intensity (A.U.)",    "18_TMRM",      None),
+        ("Bodipy_mean", "BODIPY intensity (A.U.)",  "21_Bodipy",    None),
+        ("CellRox_mean","CellROX intensity (A.U.)", "22_CellRox",   None),
+    ]),
+    ("Fluorescence – Rate of Change", [
+        (DGFP,          "dGFP/dt (A.U./h)",         "19_dGFP_dt",   None),
+        (DTMRM,         "dTMRM/dt (A.U./h)",        "20_dTMRM_dt",  None),
+        (DBODIPY,       "dBODIPY/dt (A.U./h)",      "23_dBodipy_dt",None),
+        (DCELLROX,      "dCellROX/dt (A.U./h)",     "24_dCellRox_dt",None),
+    ]),
 ]
 
-BAR_SPECS = [
-    ("mu_exp",           "μ exp (1/h)",               "03_Mu_Exp"),
-    ("qGlc_pmol_exp",    "qGlc exp (pmol/cell/day)",  "09_qGlc_Exp"),
-    ("qLac_pmol_exp",    "qLac exp (pmol/cell/day)",  "10_qLac_Exp"),
-    ("qP_exp",           "qP exp (pg/cell/day)",      "13_qP_Exp"),
-    ("qGln_exp",         "qGln exp (pmol/cell/day)",  "11_qGln_Exp"),
-    ("qGlu_exp",         "qGlu exp (pmol/cell/day)",  "12_qGlu_Exp"),
-    ("Y_Lac_Glc_exp",    "Y Lac/Glc exp (g/g)",       "14_YLacGlc_Exp"),
-    ("Y_Glu_Gln_exp",    "Y Glu/Gln exp (mol/mol)",   "15_YGluGln_Exp"),
-    ("dGFP_dt_exp",      "dGFP/dt exp (A.U./h)",      "19_dGFP_dt_Exp"),
-    ("dTMRM_dt_exp",     "dTMRM/dt exp (A.U./h)",     "20_dTMRM_dt_Exp"),
-    ("dBODIPY_dt_exp",   "dBODIPY/dt exp (A.U./h)",   "21_dBodipy_dt_Exp"),
-    ("dCellROX_dt_exp",  "dCellROX/dt exp (A.U./h)",  "22_dCellRox_dt_Exp"),
+# bar chart specs grouped the same way.
+# Each group: (section_title, [(summary_col, y-label, filename-stem), ...])
+BAR_GROUPS = [
+    ("Kinetic Parameters", [
+        ("mu_exp",         "μ exp (1/h)",              "03_Mu_Exp"),
+        ("qGlc_pmol_exp",  "qGlc exp (pmol/cell/day)", "09_qGlc_Exp"),
+        ("qLac_pmol_exp",  "qLac exp (pmol/cell/day)", "10_qLac_Exp"),
+        ("qP_exp",         "qP exp (pg/cell/day)",     "13_qP_Exp"),
+        ("qGln_exp",       "qGln exp (pmol/cell/day)", "11_qGln_Exp"),
+        ("qGlu_exp",       "qGlu exp (pmol/cell/day)", "12_qGlu_Exp"),
+        ("Y_Lac_Glc_exp",  "Y Lac/Glc exp (g/g)",      "14_YLacGlc_Exp"),
+        ("Y_Glu_Gln_exp",  "Y Glu/Gln exp (mol/mol)",  "15_YGluGln_Exp"),
+    ]),
+    ("Fluorescence – Rate of Change", [
+        ("dGFP_dt_exp",    "dGFP/dt exp (A.U./h)",     "19_dGFP_dt_Exp"),
+        ("dTMRM_dt_exp",   "dTMRM/dt exp (A.U./h)",    "20_dTMRM_dt_Exp"),
+        ("dBODIPY_dt_exp", "dBODIPY/dt exp (A.U./h)",  "21_dBodipy_dt_Exp"),
+        ("dCellROX_dt_exp","dCellROX/dt exp (A.U./h)", "22_dCellRox_dt_Exp"),
+    ]),
 ]
+
+# Maps fluorescence column names → channel label, used to filter intensity
+# plots by the user's channel selection (fluor_set).
+FLUOR_COL_TO_LABEL = {
+    "GFP_mean":    "GFP",     DGFP:     "GFP",
+    "TMRM_mean":   "TMRM",    DTMRM:    "TMRM",
+    "Bodipy_mean": "BODIPY",  DBODIPY:  "BODIPY",
+    "CellRox_mean":"CellROX", DCELLROX: "CellROX",
+}
 
 CORR_SPECS = [
     # GFP / TMRM
@@ -520,43 +545,58 @@ def _ts_layout(ylabel, ylim=None, hovermode="closest"):
     return layout
 
 
-def _scatter_data(df, clones, pal):
-    """One scatter trace per clone, one chart per TS_SPEC."""
+def _scatter_data(df, clones, pal, fluor_set=None):
+    """One scatter trace per clone, one chart per spec; grouped with section headers."""
     out = {}
-    for col, ylabel, fname, ylim in TS_SPECS:
-        if col not in df.columns or df[col].isna().all():
-            continue
-        traces = []
-        for c in clones:
-            sub = df[df["Clone"] == c].dropna(subset=[col])
-            if sub.empty:
+    for section_title, specs in TS_GROUPS:
+        group = {}
+        for col, ylabel, fname, ylim in specs:
+            if col not in df.columns or df[col].isna().all():
                 continue
-            traces.append({
-                "x":    _to_list(sub["t_hr"]),
-                "y":    _to_list(sub[col]),
-                "name": str(c),
-                "mode": "markers",
-                "type": "scatter",
-                "marker": {"color": pal[c], "size": 8, "opacity": 0.8},
-                "hovertemplate": (
-                    f"<b>{c}</b><br>"
-                    f"t: %{{x}} h<br>"
-                    f"{ylabel}: %{{y:.4g}}"
-                    "<extra></extra>"
-                ),
-            })
-        if traces:
-            out[fname] = {"traces": traces, "layout": _ts_layout(ylabel, ylim)}
+            # Skip fluorescence columns for deselected channels
+            if fluor_set is not None and col in FLUOR_COL_TO_LABEL:
+                if FLUOR_COL_TO_LABEL[col] not in fluor_set:
+                    continue
+            traces = []
+            for c in clones:
+                sub = df[df["Clone"] == c].dropna(subset=[col])
+                if sub.empty:
+                    continue
+                traces.append({
+                    "x":    _to_list(sub["t_hr"]),
+                    "y":    _to_list(sub[col]),
+                    "name": str(c),
+                    "mode": "markers",
+                    "type": "scatter",
+                    "marker": {"color": pal[c], "size": 8, "opacity": 0.8},
+                    "hovertemplate": (
+                        f"<b>{c}</b><br>"
+                        f"t: %{{x}} h<br>"
+                        f"{ylabel}: %{{y:.4g}}"
+                        "<extra></extra>"
+                    ),
+                })
+            if traces:
+                group[fname] = {"traces": traces, "layout": _ts_layout(ylabel, ylim)}
+        if group:
+            out[f"__section__{section_title}"] = None
+            out.update(group)
     return out
 
 
-def _lines_data(df, clones, pal):
-    """Mean ± SD line per clone, pre-feed rows only."""
+def _lines_data(df, clones, pal, fluor_set=None):
+    """Mean ± SD line per clone, pre-feed rows only; grouped with section headers."""
     out = {}
     pre = df[~df["is_post_feed"]]
-    for col, ylabel, fname, ylim in TS_SPECS:
+    for section_title, specs in TS_GROUPS:
+      group = {}
+      for col, ylabel, fname, ylim in specs:
         if col not in df.columns or df[col].isna().all():
             continue
+        # Skip fluorescence columns for deselected channels
+        if fluor_set is not None and col in FLUOR_COL_TO_LABEL:
+            if FLUOR_COL_TO_LABEL[col] not in fluor_set:
+                continue
         s = (pre.groupby(["Clone","t_hr"])[col]
              .agg(mean="mean", std="std").reset_index())
         traces = []
@@ -587,14 +627,19 @@ def _lines_data(df, clones, pal):
                 ),
             })
         if traces:
-            out[fname] = {"traces": traces, "layout": _ts_layout(ylabel, ylim, "x unified")}
+            group[fname] = {"traces": traces, "layout": _ts_layout(ylabel, ylim, "x unified")}
+      if group:
+          out[f"__section__{section_title}"] = None
+          out.update(group)
     return out
 
 
-def _bars_data(summary, clones, pal):
-    """Bar (mean ± SD) + replicate scatter overlay, one chart per BAR_SPEC."""
+def _bars_data(summary, clones, pal, fluor_set=None):
+    """Bar (mean ± SD) + replicate scatter overlay, grouped with section headers."""
     out = {}
-    for col, ylabel, fname in BAR_SPECS:
+    for section_title, specs in BAR_GROUPS:
+      group = {}
+      for col, ylabel, fname in specs:
         if col not in summary.columns or summary[col].isna().all():
             continue
         agg = (summary.groupby("Clone")[col]
@@ -669,7 +714,10 @@ def _bars_data(summary, clones, pal):
             "barmode": "group",
             "legend":  {"title": {"text": "Clone"}},
         }
-        out[fname] = {"traces": traces, "layout": layout}
+        group[fname] = {"traces": traces, "layout": layout}
+      if group:
+          out[f"__section__{section_title}"] = None
+          out.update(group)
     return out
 
 
@@ -845,13 +893,13 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
     ]
 
     cb("Building scatter charts…", 35)
-    scatter = _scatter_data(df_kin, clones, pal)
+    scatter = _scatter_data(df_kin, clones, pal, fluor_set)
 
     cb("Building line charts…", 52)
-    lines   = _lines_data(df_kin, clones, pal)
+    lines   = _lines_data(df_kin, clones, pal, fluor_set)
 
     cb("Building bar charts…", 68)
-    bars    = _bars_data(summary, clones, pal)
+    bars    = _bars_data(summary, clones, pal, fluor_set)
 
     cb("Building correlation charts…", 84)
     corr    = _correlations_data(df_kin, clones, pal)

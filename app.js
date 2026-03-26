@@ -246,21 +246,28 @@ function renderInfoCards(info) {
 
 /**
  * Render a tab of Plotly charts.
+ * Keys starting with "__section__" are treated as section headers, not plots.
  * @param {string} tabId  - id of the inner <div> inside the tab pane
- * @param {Object} plotsData - { fname: { traces, layout } }
+ * @param {Object} plotsData - { fname: { traces, layout } | null }
  */
 function renderPlotTab(tabId, plotsData) {
     const container = document.getElementById(tabId);
     if (!container) return;
 
-    const entries = Object.entries(plotsData || {});
+    const entries = Object.entries(plotsData || {}).filter(([k]) => !k.startsWith("__section__"));
     if (entries.length === 0) {
         container.innerHTML = `<p class="text-muted text-center py-4">No plots available for this category.</p>`;
         return;
     }
 
-    // Build card grid with placeholder divs
-    container.innerHTML = entries.map(([fname]) => `
+    // Build card grid, inserting section headers for __section__ sentinels
+    const allEntries = Object.entries(plotsData || {});
+    container.innerHTML = allEntries.map(([fname, spec]) => {
+        if (fname.startsWith("__section__")) {
+            const title = fname.slice("__section__".length);
+            return `<div class="col-12"><div class="plots-section-header">${title}</div></div>`;
+        }
+        return `
         <div class="col-12 col-lg-6 mb-4">
             <div class="card shadow-sm h-100">
                 <div class="card-header py-2 px-3 small text-muted">
@@ -270,12 +277,14 @@ function renderPlotTab(tabId, plotsData) {
                     <div id="plot-${tabId}-${fname}" class="plotly-chart"></div>
                 </div>
             </div>
-        </div>
-    `).join("");
+        </div>`;
+    }).join("");
 
-    // Render each Plotly chart
-    for (const [fname, spec] of entries) {
-        Plotly.newPlot(`plot-${tabId}-${fname}`, spec.traces, spec.layout, PLOTLY_CONFIG);
+    // Render each Plotly chart (skip sentinels)
+    for (const [fname, spec] of allEntries) {
+        if (!fname.startsWith("__section__") && spec) {
+            Plotly.newPlot(`plot-${tabId}-${fname}`, spec.traces, spec.layout, PLOTLY_CONFIG);
+        }
     }
 }
 
@@ -298,13 +307,15 @@ async function downloadZip() {
             "plots/04_correlations":   results.plots.correlations,
         };
 
-        // Count total plots for progress display
+        // Count total plots for progress display (exclude section sentinel keys)
         let total = 0;
-        for (const plots of Object.values(folders)) total += Object.keys(plots || {}).length;
+        for (const plots of Object.values(folders))
+            total += Object.keys(plots || {}).filter(k => !k.startsWith("__section__")).length;
         let done = 0;
 
         for (const [folder, plots] of Object.entries(folders)) {
             for (const [name, spec] of Object.entries(plots || {})) {
+                if (name.startsWith("__section__")) continue;
                 btn.textContent = `Exporting ${++done}/${total}…`;
                 const b64 = await specToPng(spec);
                 if (b64) zip.file(`${folder}/${name}.png`, b64, { base64: true });
