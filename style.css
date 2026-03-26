@@ -98,6 +98,20 @@ header .subtitle {
   min-height: 380px;
 }
 
+/* Clone color picker inputs */
+.clone-color-input {
+  width:  34px;
+  height: 28px;
+  padding: 2px 3px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  background: none;
+}
+.clone-color-input::-webkit-color-swatch-wrapper { padding: 0; }
+.clone-color-input::-webkit-color-swatch         { border: none; border-radius: 4px; }
+.clone-color-input::-moz-color-swatch            { border: none; border-radius: 4px; }
+
 /* Section divider inside plot grids */
 .plots-section-header {
   font-size: 0.78rem;

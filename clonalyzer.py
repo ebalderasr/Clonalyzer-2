@@ -7,6 +7,7 @@ interactive rendering in the browser via Plotly.js.
 """
 
 import io
+import json
 import math
 import numpy as np
 import pandas as pd
@@ -849,7 +850,37 @@ def make_custom_correlation(xcol, ycol):
     )
 
 
-# ── Public entry point ─────────────────────────────────────────────────────────
+# ── Public entry points ────────────────────────────────────────────────────────
+
+def regenerate_plots(palette_json):
+    """
+    Re-build all plot specs with a user-supplied colour palette.
+    Called from JavaScript after the user changes clone colours.
+
+    palette_json : str  – JSON object mapping clone names to hex colours,
+                          e.g. '{"Control": "#000000", "Clone1": "#FF0066"}'
+
+    Returns the same {scatter, lines, bars, correlations} structure as
+    run_analysis() so the caller can simply swap results.plots.
+    """
+    if not _state:
+        raise RuntimeError("No analysis loaded. Run run_analysis() first.")
+    custom    = json.loads(str(palette_json))
+    df_kin    = _state["df"]
+    clones    = _state["clones"]
+    summary   = _state["summary"]
+    fluor_set = _state.get("fluor_set")
+    # User colours take priority; fall back to defaults for unlisted clones
+    default   = _palette(clones)
+    pal       = {c: custom.get(str(c), default[c]) for c in clones}
+    _state["pal"] = pal   # keep custom correlations in sync
+    return {
+        "scatter":      _scatter_data(df_kin, clones, pal, fluor_set),
+        "lines":        _lines_data(df_kin, clones, pal, fluor_set),
+        "bars":         _bars_data(summary, clones, pal, fluor_set),
+        "correlations": _correlations_data(df_kin, clones, pal),
+    }
+
 
 def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
                  skip_first_row=True, progress_cb=None, use_volume=True,
@@ -899,7 +930,8 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
     pal    = _palette(clones)
 
     _state.clear()
-    _state.update({"df": df_kin, "clones": clones, "pal": pal})
+    _state.update({"df": df_kin, "clones": clones, "pal": pal,
+                   "summary": summary, "fluor_set": fluor_set})
 
     avail_cols = [
         [label, col] for label, col in CUSTOM_CORR_COLS
@@ -936,6 +968,7 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
             "n_timepoints":  int(df_kin["t_hr"].nunique()),
             "n_rows":        int(len(df_kin)),
             "clones":        clones,
+            "palette":       {str(c): pal[c] for c in clones},
             "active_fluor":  active_fluor,   # channels with data
             "enabled_fluor": enabled_fluor,  # channels enabled in UI
             "scenario":      scenario,

@@ -182,6 +182,7 @@ function setProcessProgress(msg, pct) {
 // ── Results rendering ──────────────────────────────────────────────────────────
 function displayResults(r) {
     renderInfoCards(r.info);
+    renderColorPickers(r.info.clones, r.info.palette || {});
     renderPlotTab("tab-scatter",      r.plots.scatter);
     renderPlotTab("tab-lines",        r.plots.lines);
     renderPlotTab("tab-bars",         r.plots.bars);
@@ -194,6 +195,63 @@ function displayResults(r) {
         document.querySelectorAll(".tab-pane.active .js-plotly-plot")
             .forEach(div => Plotly.Plots.resize(div));
     }));
+}
+
+// ── Clone color pickers ────────────────────────────────────────────────────────
+function renderColorPickers(clones, palette) {
+    const container = document.getElementById("clone-color-pickers");
+    container.innerHTML = clones.map((c, i) => `
+        <div class="d-flex align-items-center gap-2">
+            <input type="color"
+                   id="clone-color-${i}"
+                   value="${palette[c] || "#000000"}"
+                   class="clone-color-input"
+                   title="Color for ${c}" />
+            <span class="small fw-medium">${c}</span>
+        </div>
+    `).join("");
+    show(document.getElementById("clone-colors-section"));
+}
+
+async function applyCloneColors() {
+    const btn = document.getElementById("btn-apply-colors");
+    btn.disabled = true;
+    btn.textContent = "Applying…";
+    try {
+        const clones = results.info.clones;
+        const palette = {};
+        clones.forEach((c, i) => {
+            const el = document.getElementById(`clone-color-${i}`);
+            if (el) palette[c] = el.value;
+        });
+
+        pyodide.globals.set("_palette_json", JSON.stringify(palette));
+        const pyResult = await pyodide.runPythonAsync("regenerate_plots(_palette_json)");
+        const newPlots = deepConvert(pyResult);
+
+        results.plots = newPlots;
+        renderPlotTab("tab-scatter",      newPlots.scatter);
+        renderPlotTab("tab-lines",        newPlots.lines);
+        renderPlotTab("tab-bars",         newPlots.bars);
+        renderPlotTab("tab-correlations", newPlots.correlations);
+
+        // Restore active tab resize
+        const activeBtn = document.querySelector("#plot-tabs .nav-link.active");
+        if (activeBtn) {
+            const paneId = activeBtn.getAttribute("data-bs-target");
+            document.querySelector(paneId)
+                ?.querySelectorAll(".js-plotly-plot")
+                .forEach(div => Plotly.Plots.resize(div));
+        }
+        // Clear custom correlations (they'll be regenerated with new colors on demand)
+        document.getElementById("custom-corr-gallery").innerHTML = "";
+    } catch (err) {
+        alert("Error applying colors: " + err.message);
+        console.error(err);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Apply to all charts";
+    }
 }
 
 function renderInfoCards(info) {
@@ -368,6 +426,7 @@ function analyzeAnother() {
     results = null;
     elFileInput.value = "";
     hide(elResultsSection);
+    hide(document.getElementById("clone-colors-section"));
     show(elUploadSection);
     elUploadSection.scrollIntoView({ behavior: "smooth" });
 }
