@@ -88,7 +88,8 @@
           <strong>Row 2</strong> – Column names:
           <code>t_hr, Clone, Rep, is_post_feed, VCD, DCD, Viab_pct, rP_mg_L,
           Glc_g_L, Lac_g_L, Gln_mM, Glu_mM, Vol_mL</code><br>
-          Optional: <code>GFP_mean, GFP_std, TMRM_mean, TMRM_std</code><br>
+          Optional: <code>GFP_mean, GFP_std, TMRM_mean, TMRM_std,
+          Bodipy_mean, Bodipy_std, CellRox_mean, CellRox_std</code><br>
           <strong>Row 3+</strong> – Numeric data
         </div>
       </div>
@@ -122,6 +123,32 @@
             Variable volume
             <span class="text-muted">(use <code>Vol_mL</code> for mass-balance calculations; uncheck to force concentration-based)</span>
           </label>
+        </div>
+      </div>
+
+      <!-- Fluorescence channel selector -->
+      <div class="mb-3">
+        <label class="form-label small fw-semibold mb-1">
+          Fluorescence channels
+          <span class="text-muted fw-normal">(uncheck to exclude a channel even if present in the CSV)</span>
+        </label>
+        <div class="d-flex flex-wrap gap-3">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="fluor-gfp" checked />
+            <label class="form-check-label small" for="fluor-gfp">GFP</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="fluor-tmrm" checked />
+            <label class="form-check-label small" for="fluor-tmrm">TMRM</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="fluor-bodipy" checked />
+            <label class="form-check-label small" for="fluor-bodipy">BODIPY</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="fluor-cellrox" checked />
+            <label class="form-check-label small" for="fluor-cellrox">CellROX</label>
+          </div>
         </div>
       </div>
 

@@ -186,11 +186,14 @@ CUSTOM_CORR_COLS = [
 def _palette(clones):
     return {c: PALETTE[i % len(PALETTE)] for i, c in enumerate(clones)}
 
-def _has_cyto(df):
-    return all(c in df.columns for c in ("GFP_mean", "TMRM_mean"))
-
-def _active_fluor(df):
-    return [(mc, rc, lbl) for mc, rc, lbl in FLUOR_CHANNELS if mc in df.columns]
+def _active_fluor(df, fluor_set=None):
+    """Return list of (mean_col, rate_col, label) for channels that are both
+    present in the dataframe AND enabled by the user selection (fluor_set).
+    fluor_set=None means all channels that have data are included."""
+    return [
+        (mc, rc, lbl) for mc, rc, lbl in FLUOR_CHANNELS
+        if mc in df.columns and (fluor_set is None or lbl in fluor_set)
+    ]
 
 def _v(x):
     """Scalar → Python float; NaN/inf/None → None (JSON-safe)."""
@@ -262,7 +265,7 @@ def _load(csv_text: str, skip_first_row: bool = True) -> pd.DataFrame:
 # ── Kinetics ───────────────────────────────────────────────────────────────────
 
 def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
-             use_volume: bool = True) -> pd.DataFrame:
+             use_volume: bool = True, fluor_set=None) -> pd.DataFrame:
     """
     Compute kinetic and metabolic parameters for every consecutive interval
     within each Clone × Rep group.
@@ -299,7 +302,7 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
                 Y_LG, Y_GQ, IVCD_INT, IVCD_CUM]
     if has_vol:
         out_cols += [ITVC_INT, ITVC_CUM]
-    out_cols += [rc for _, rc, _ in _active_fluor(df)]
+    out_cols += [rc for _, rc, _ in _active_fluor(df, fluor_set)]
     for col in out_cols:
         df[col] = np.nan
 
@@ -450,7 +453,7 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
             df.at[ic, IVCD_CUM] = ivcd_cum
 
             # ── Fluorescence rates of change ──────────────────────────────────
-            for mean_col, rate_col, _ in _active_fluor(df):
+            for mean_col, rate_col, _ in _active_fluor(df, fluor_set):
                 f1, f2 = rp[mean_col], rc[mean_col]
                 if pd.notna(f1) and pd.notna(f2):
                     df.at[ic, rate_col] = (f2 - f1) / dt
@@ -462,12 +465,12 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
     return df
 
 
-def _summarise(df: pd.DataFrame) -> pd.DataFrame:
+def _summarise(df: pd.DataFrame, fluor_set=None) -> pd.DataFrame:
     exp = df[df[PHASE] == PHASE_EXP]
     rate_map = [(QGLC_PMOL,"qGlc_pmol_exp"),(QLAC_PMOL,"qLac_pmol_exp"),(QP,"qP_exp"),
                 (QGLN_D,"qGln_exp"),(QGLU_D,"qGlu_exp"),
                 (Y_LG,"Y_Lac_Glc_exp"),(Y_GQ,"Y_Glu_Gln_exp")]
-    rate_map += [(rc, f"d{lbl}_dt_exp") for _, rc, lbl in _active_fluor(df)]
+    rate_map += [(rc, f"d{lbl}_dt_exp") for _, rc, lbl in _active_fluor(df, fluor_set)]
 
     records = []
     for (clone, rep), grp in exp.groupby(["Clone","Rep"], sort=False):
@@ -787,7 +790,8 @@ def make_custom_correlation(xcol, ycol):
 # ── Public entry point ─────────────────────────────────────────────────────────
 
 def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
-                 skip_first_row=True, progress_cb=None, use_volume=True):
+                 skip_first_row=True, progress_cb=None, use_volume=True,
+                 fluor_channels=""):
     """
     Main function called from JavaScript via Pyodide.
 
@@ -798,9 +802,13 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
         variable-volume (mass-balance) scenario. When False, force the
         constant-volume (concentration-based) scenario regardless of
         whether Vol_mL is in the CSV.
+    fluor_channels : str
+        Comma-separated list of fluorescence channel labels to include,
+        e.g. "GFP,TMRM". Empty string or None means all channels with
+        data are included.
 
     Returns a dict with keys:
-        info           – dataset metadata (includes 'scenario' key)
+        info           – dataset metadata (includes 'scenario', 'active_fluor')
         processed_csv  – full kinetics CSV as string
         summary_csv    – exp-phase summary CSV as string
         avail_cols     – list of [label, colname] for custom correlation selectors
@@ -811,13 +819,19 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
         if progress_cb is not None:
             progress_cb(msg, pct)
 
+    # Parse user-selected fluorescence channels ("" or None → include all)
+    if fluor_channels:
+        fluor_set = {lbl.strip() for lbl in str(fluor_channels).split(",") if lbl.strip()}
+    else:
+        fluor_set = None
+
     cb("Loading and cleaning data…", 5)
     df = _load(csv_text, bool(skip_first_row))
 
     cb("Computing kinetics…", 20)
     df_kin  = _compute(df, float(exp_phase_start), float(exp_phase_end),
-                       use_volume=bool(use_volume))
-    summary = _summarise(df_kin)
+                       use_volume=bool(use_volume), fluor_set=fluor_set)
+    summary = _summarise(df_kin, fluor_set=fluor_set)
 
     clones = df_kin["Clone"].unique().tolist()
     pal    = _palette(clones)
@@ -845,6 +859,7 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
     cb("Done!", 100)
 
     scenario = SCENARIO_VAR if ((VOL_COL in df_kin.columns) and bool(use_volume)) else SCENARIO_CONST
+    active_fluor = [lbl for _, _, lbl in _active_fluor(df_kin, fluor_set)]
 
     return {
         "info": {
@@ -853,7 +868,7 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
             "n_timepoints": int(df_kin["t_hr"].nunique()),
             "n_rows":       int(len(df_kin)),
             "clones":       clones,
-            "has_cyto":     bool(_has_cyto(df_kin)),
+            "active_fluor": active_fluor,
             "scenario":     scenario,
         },
         "avail_cols":    avail_cols,

@@ -16,6 +16,7 @@ let elUploadSection, elDropZone, elFileInput;
 let elProcessSection, elProcessBar, elProcessMsg;
 let elResultsSection;
 let elExpPhaseStartInput, elExpPhaseInput, elSkipFirstRow, elUseVolume;
+let elFluorGFP, elFluorTMRM, elFluorBODIPY, elFluorCellROX;
 
 // ── Plotly config used for all interactive charts ──────────────────────────────
 const PLOTLY_CONFIG = {
@@ -42,6 +43,10 @@ document.addEventListener("DOMContentLoaded", () => {
     elExpPhaseInput      = document.getElementById("exp-phase-end");
     elSkipFirstRow       = document.getElementById("skip-first-row");
     elUseVolume          = document.getElementById("use-volume");
+    elFluorGFP           = document.getElementById("fluor-gfp");
+    elFluorTMRM          = document.getElementById("fluor-tmrm");
+    elFluorBODIPY        = document.getElementById("fluor-bodipy");
+    elFluorCellROX       = document.getElementById("fluor-cellrox");
 
     setupDropZone();
     setupTabResizeListener();
@@ -129,15 +134,24 @@ async function handleFile(file) {
         const skipFirstRow  = elSkipFirstRow.checked;
         const useVolume     = elUseVolume.checked;
 
-        pyodide.globals.set("_progress_cb",   (msg, pct) => setProcessProgress(msg, pct));
-        pyodide.globals.set("_csv_text",       csvText);
-        pyodide.globals.set("_exp_start",      expPhaseStart);
-        pyodide.globals.set("_exp_end",        expPhaseEnd);
-        pyodide.globals.set("_skip_first_row", skipFirstRow);
-        pyodide.globals.set("_use_volume",     useVolume);
+        // Build comma-separated list of enabled fluorescence channels
+        const fluorParts = [];
+        if (elFluorGFP?.checked)     fluorParts.push("GFP");
+        if (elFluorTMRM?.checked)    fluorParts.push("TMRM");
+        if (elFluorBODIPY?.checked)  fluorParts.push("BODIPY");
+        if (elFluorCellROX?.checked) fluorParts.push("CellROX");
+        const fluorChannels = fluorParts.join(",");  // "" means none selected → Python includes all
+
+        pyodide.globals.set("_progress_cb",    (msg, pct) => setProcessProgress(msg, pct));
+        pyodide.globals.set("_csv_text",        csvText);
+        pyodide.globals.set("_exp_start",       expPhaseStart);
+        pyodide.globals.set("_exp_end",         expPhaseEnd);
+        pyodide.globals.set("_skip_first_row",  skipFirstRow);
+        pyodide.globals.set("_use_volume",      useVolume);
+        pyodide.globals.set("_fluor_channels",  fluorChannels);
 
         const pyResult = await pyodide.runPythonAsync(
-            `run_analysis(_csv_text, _exp_start, _exp_end, _skip_first_row, _progress_cb, _use_volume)`
+            `run_analysis(_csv_text, _exp_start, _exp_end, _skip_first_row, _progress_cb, _use_volume, _fluor_channels)`
         );
 
         results = deepConvert(pyResult);
@@ -184,9 +198,10 @@ function displayResults(r) {
 
 function renderInfoCards(info) {
     const el = document.getElementById("info-cards");
-    const cytoTag = info.has_cyto
-        ? `<span class="badge bg-success ms-2">GFP / TMRM ✓</span>`
-        : `<span class="badge bg-secondary ms-2">No cytometry</span>`;
+    const activeFluor = info.active_fluor || [];
+    const cytoTag = activeFluor.length > 0
+        ? `<span class="badge bg-success ms-2">${activeFluor.join(" / ")} ✓</span>`
+        : `<span class="badge bg-secondary ms-2">No fluorescence</span>`;
     const scenarioTag = info.scenario === "variable_volume"
         ? `<span class="badge bg-info text-dark ms-2">Variable volume</span>`
         : `<span class="badge bg-warning text-dark ms-2">Constant volume</span>`;
