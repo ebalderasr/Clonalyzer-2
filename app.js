@@ -198,10 +198,18 @@ function displayResults(r) {
 
 function renderInfoCards(info) {
     const el = document.getElementById("info-cards");
-    const activeFluor = info.active_fluor || [];
-    const cytoTag = activeFluor.length > 0
-        ? `<span class="badge bg-success ms-2">${activeFluor.join(" / ")} ✓</span>`
-        : `<span class="badge bg-secondary ms-2">No fluorescence</span>`;
+    const activeSet    = new Set(info.active_fluor  || []);
+    const enabledFluor = info.enabled_fluor || [];
+    let cytoTag = "";
+    if (enabledFluor.length === 0) {
+        cytoTag = `<span class="badge bg-secondary ms-2">No fluorescence</span>`;
+    } else {
+        cytoTag = enabledFluor.map(ch =>
+            activeSet.has(ch)
+                ? `<span class="badge bg-success ms-1">${ch} ✓</span>`
+                : `<span class="badge bg-light border ms-1 text-muted">${ch} –</span>`
+        ).join("");
+    }
     const scenarioTag = info.scenario === "variable_volume"
         ? `<span class="badge bg-info text-dark ms-2">Variable volume</span>`
         : `<span class="badge bg-warning text-dark ms-2">Constant volume</span>`;

@@ -907,17 +907,24 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
     cb("Done!", 100)
 
     scenario = SCENARIO_VAR if ((VOL_COL in df_kin.columns) and bool(use_volume)) else SCENARIO_CONST
+
+    # Channels that are both enabled by the user AND have data in the CSV
     active_fluor = [lbl for _, _, lbl in _active_fluor(df_kin, fluor_set)]
+    # Channels that are enabled by the user (regardless of whether data is present)
+    all_labels   = [lbl for _, _, lbl in FLUOR_CHANNELS]
+    enabled_fluor = [lbl for lbl in all_labels
+                     if fluor_set is None or lbl in fluor_set]
 
     return {
         "info": {
-            "n_clones":     int(df_kin["Clone"].nunique()),
-            "n_reps":       int(df_kin["Rep"].nunique()),
-            "n_timepoints": int(df_kin["t_hr"].nunique()),
-            "n_rows":       int(len(df_kin)),
-            "clones":       clones,
-            "active_fluor": active_fluor,
-            "scenario":     scenario,
+            "n_clones":      int(df_kin["Clone"].nunique()),
+            "n_reps":        int(df_kin["Rep"].nunique()),
+            "n_timepoints":  int(df_kin["t_hr"].nunique()),
+            "n_rows":        int(len(df_kin)),
+            "clones":        clones,
+            "active_fluor":  active_fluor,   # channels with data
+            "enabled_fluor": enabled_fluor,  # channels enabled in UI
+            "scenario":      scenario,
         },
         "avail_cols":    avail_cols,
         "processed_csv": df_kin.to_csv(index=False),
