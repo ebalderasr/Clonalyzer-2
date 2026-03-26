@@ -267,23 +267,24 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
     Compute kinetic and metabolic parameters for every consecutive interval
     within each Clone × Rep group.
 
-    Scenario detection
-    ──────────────────
-    • variable_volume  (Vol_mL present AND use_volume=True):
-        - Mass-balance approach: M = concentration × volume
-        - Normalizer: ITVC = ∫ TC dt  where TC = VCD × Vol_mL
-        - q_X = ΔM_X / ΔITVC    (intensive rate from extensive quantities)
-        - Y   = ΔM_product / ΔM_substrate
+    Two independent calculation paths (PDF §2 and §3):
+    ────────────────────────────────────────────────────
+    • variable_volume  (Vol_mL present AND use_volume=True):  PDF §3
+        - TC    = VCD × V  (total viable cells)
+        - M_i   = C_i × V  (total mass / moles of metabolite i)
+        - ΔITVC = (TC_1 + TC_2) / 2 × Δt
+        - q_i   = ΔM_i / ΔITVC
+        - Y     = ΔM_product / ΔM_substrate
 
-    • constant_volume  (Vol_mL absent OR use_volume=False):
-        - Concentration-based approach (vol set to 1.0 placeholder)
-        - Normalizer: IVCD = ∫ VCD dt  (concentrations, no volume needed)
-        - q_X = ΔC_X / ΔIVCD           (same formula; vol cancels when constant)
-        - Y   = ΔC_product / ΔC_substrate
+    • constant_volume  (Vol_mL absent OR use_volume=False):   PDF §2
+        - No volume data used at all
+        - ΔIVCD = (VCD_1 + VCD_2) / 2 × Δt
+        - q_i   = ΔC_i / ΔIVCD
+        - Y     = ΔC_product / ΔC_substrate
 
-    Critical exception
-    ──────────────────
-    μ ALWAYS uses VCD (concentration), never total cells (TC).
+    Critical exception (both scenarios):
+    ─────────────────────────────────────
+    μ ALWAYS uses VCD (concentration), never TC (total cells).
     Using TC for μ when volume decreases (sampling) yields spurious
     negative values that do not reflect true cellular growth rate.
     """
@@ -319,104 +320,134 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
 
             v1, v2 = rp["VCD"], rc["VCD"]
 
-            # ── μ: ALWAYS from VCD — NEVER from total cells ───────────────────
-            # Using TC would produce negative μ when volume drops on sampling,
-            # erroneously mixing dilution effect with growth rate.
+            # ── μ: ALWAYS VCD-based  (PDF §2.1 / §3.4) ───────────────────────
+            # Using TC for μ produces spurious negative values whenever volume
+            # drops (e.g. sampling removes medium), confusing dilution with death.
             if v1 > 0 and v2 > 0:
                 df.at[ic, MU] = np.log(v2 / v1) / dt
 
-            # ── Volume for mass-balance terms ─────────────────────────────────
-            # variable_volume: use measured volumes → mass = conc × vol
-            # constant_volume: vol = 1.0 → mass terms collapse to concentrations
             if has_vol:
+                # ══════════════════════════════════════════════════════════════
+                # VARIABLE VOLUME — mass-balance approach  (PDF §3)
+                #
+                #   TC    = VCD × V          (total viable cells in reactor)
+                #   M_i   = C_i × V          (total mass/moles of metabolite i)
+                #   ΔITVC = (TC_1 + TC_2)/2 × Δt
+                #   q_i   = ΔM_i / ΔITVC
+                # ══════════════════════════════════════════════════════════════
                 vol1, vol2 = rp[VOL_COL], rc[VOL_COL]
+
+                # TC = VCD [cells/mL] × V [mL]  →  [cells]
+                TC1 = v1 * vol1
+                TC2 = v2 * vol2
+
+                # ΔITVC = (TC_1 + TC_2) / 2 × Δt  [cells·h]  (PDF eq. 3.3)
+                delta_ITVC = 0.5 * (TC1 + TC2) * dt
+                if delta_ITVC <= 0:
+                    continue
+
+                # M_i = C_i [g/L or mM] × V [mL] / 1000  →  [g] or [mmol]
+                # Dividing by 1000 converts V from mL to L to get SI mass units.
+                M_Glc1 = rp["Glc_g_L"] * vol1 / 1000   # [g]
+                M_Glc2 = rc["Glc_g_L"] * vol2 / 1000
+                M_Lac1 = rp["Lac_g_L"] * vol1 / 1000   # [g]
+                M_Lac2 = rc["Lac_g_L"] * vol2 / 1000
+                M_Gln1 = rp["Gln_mM"]  * vol1 / 1000   # [mmol]
+                M_Gln2 = rc["Gln_mM"]  * vol2 / 1000
+                M_Glu1 = rp["Glu_mM"]  * vol1 / 1000   # [mmol]
+                M_Glu2 = rc["Glu_mM"]  * vol2 / 1000
+                rP1 = rp["rP_mg_L"] if pd.notna(rp["rP_mg_L"]) else 0.0
+                rP2 = rc["rP_mg_L"] if pd.notna(rc["rP_mg_L"]) else 0.0
+                M_rP1 = rP1 * vol1 / 1000               # [mg]
+                M_rP2 = rP2 * vol2 / 1000
+
+                # q_i = ΔM_i / ΔITVC  with unit conversions to pg/cell/day
+                # [g]    / [cells·h] × 10^12 pg/g    × 24 h/day  → pg/cell/day
+                # [mg]   / [cells·h] × 10^9  pg/mg   × 24 h/day  → pg/cell/day
+                # [mmol] / [cells·h] × 10^9  pmol/mmol           → pmol/cell/h
+                qglc_pg = (M_Glc1 - M_Glc2) / delta_ITVC * PG_PER_G  * H_PER_DAY
+                qlac_pg = (M_Lac2 - M_Lac1) / delta_ITVC * PG_PER_G  * H_PER_DAY
+                qP_pg   = (M_rP2  - M_rP1 ) / delta_ITVC * 1e9       * H_PER_DAY
+                qgh     = (M_Gln1 - M_Gln2) / delta_ITVC * MMOL_TO_PMOL
+                qguh    = (M_Glu2 - M_Glu1) / delta_ITVC * MMOL_TO_PMOL
+
+                # Y = ΔM_product / ΔM_substrate  (PDF §2.3 extended to masses)
+                # The /1000 factors cancel in the ratio.
+                glc_consumed = M_Glc1 - M_Glc2
+                lac_produced = M_Lac2 - M_Lac1
+                gln_consumed = M_Gln1 - M_Gln2
+                glu_produced = M_Glu2 - M_Glu1
+
+                # ITVC cumulative integral  (PDF eq. 3.3)
+                itvc_cum += delta_ITVC
+                df.at[ic, ITVC_INT] = delta_ITVC
+                df.at[ic, ITVC_CUM] = itvc_cum
+
             else:
-                vol1 = vol2 = 1.0
+                # ══════════════════════════════════════════════════════════════
+                # CONSTANT VOLUME — concentration-based approach  (PDF §2)
+                #
+                #   ΔIVCD = (VCD_1 + VCD_2)/2 × Δt
+                #   q_i   = ΔC_i / ΔIVCD
+                #
+                # No volume data needed — concentration changes alone are used.
+                # ══════════════════════════════════════════════════════════════
 
-            # ── TC: total viable cells  TC = VCD × V  (PDF §3.2) ─────────────
-            # variable_volume: TC [cells] = VCD [cells/mL] × Vol_mL [mL]
-            # constant_volume: vol = 1.0  → TC = VCD (no volume info)
-            TC1 = v1 * vol1
-            TC2 = v2 * vol2
+                # ΔIVCD = (VCD_1 + VCD_2) / 2 × Δt  [cells/mL · h]  (PDF eq. 2.2)
+                delta_IVCD = 0.5 * (v1 + v2) * dt
+                if delta_IVCD <= 0:
+                    continue
 
-            # ── ΔITVC / ΔIVCD: trapezoidal interval integral (PDF §2.2, §3.3) ─
-            # ΔITVC = (TC_1 + TC_2) / 2 × Δt   — variable volume normalizer
-            # ΔIVCD = (VCD_1 + VCD_2) / 2 × Δt — constant volume normalizer
-            # When vol = 1 (constant), ΔITVC = ΔIVCD; unified denominator.
-            delta_ITVC = 0.5 * (TC1 + TC2) * dt
-            if delta_ITVC <= 0:
-                continue
+                # Concentration changes — sign convention: positive = consumed/produced
+                dGlc = rp["Glc_g_L"] - rc["Glc_g_L"]   # [g/L]   positive = consumed
+                dLac = rc["Lac_g_L"] - rp["Lac_g_L"]   # [g/L]   positive = produced
+                dGln = rp["Gln_mM"]  - rc["Gln_mM"]    # [mM]    positive = consumed
+                dGlu = rc["Glu_mM"]  - rp["Glu_mM"]    # [mM]    positive = produced
+                rP1  = rp["rP_mg_L"] if pd.notna(rp["rP_mg_L"]) else 0.0
+                rP2  = rc["rP_mg_L"] if pd.notna(rc["rP_mg_L"]) else 0.0
+                drP  = rP2 - rP1                         # [mg/L]  positive = produced
 
-            # ── Mass terms  M = C × V / 1000  (converts mL → L) (PDF §3.2) ──
-            # variable_volume: M in physical units (g or mmol)
-            # constant_volume: vol = 1 → M = C / 1000; /1000 cancels with
-            #                  the equivalent factor implicit in ΔIVCD units,
-            #                  preserving correct pg/cell/day results.
-            M_Glc1 = rp["Glc_g_L"] * vol1 / 1000   # [g]
-            M_Glc2 = rc["Glc_g_L"] * vol2 / 1000
-            M_Lac1 = rp["Lac_g_L"] * vol1 / 1000   # [g]
-            M_Lac2 = rc["Lac_g_L"] * vol2 / 1000
-            M_Gln1 = rp["Gln_mM"]  * vol1 / 1000   # [mmol]
-            M_Gln2 = rc["Gln_mM"]  * vol2 / 1000
-            M_Glu1 = rp["Glu_mM"]  * vol1 / 1000   # [mmol]
-            M_Glu2 = rc["Glu_mM"]  * vol2 / 1000
-            M_rP1  = (rp["rP_mg_L"] if pd.notna(rp["rP_mg_L"]) else 0.0) * vol1 / 1000  # [mg]
-            M_rP2  = (rc["rP_mg_L"] if pd.notna(rc["rP_mg_L"]) else 0.0) * vol2 / 1000
+                # q_i = ΔC_i / ΔIVCD  with unit conversions to pg/cell/day
+                # VCD is in cells/mL and concentrations are in /L, so the
+                # mixed unit [g/L] / [cells/mL · h] carries a mL/L = 1e-3 factor.
+                # [g/L]  / [cells/mL · h] × 1e-3 × 10^12 pg/g  × 24 h/day → pg/cell/day
+                # [mg/L] / [cells/mL · h] × 1e-3 × 10^9  pg/mg × 24 h/day → pg/cell/day
+                # [mM]   / [cells/mL · h] × 1e-3 × 10^9  pmol/mmol        → pmol/cell/h
+                qglc_pg = dGlc / delta_IVCD * 1e-3 * PG_PER_G  * H_PER_DAY
+                qlac_pg = dLac / delta_IVCD * 1e-3 * PG_PER_G  * H_PER_DAY
+                qP_pg   = drP  / delta_IVCD * 1e-3 * 1e9       * H_PER_DAY
+                qgh     = dGln / delta_IVCD * 1e-3 * MMOL_TO_PMOL
+                qguh    = dGlu / delta_IVCD * 1e-3 * MMOL_TO_PMOL
 
-            # ── Specific glucose consumption rate ─────────────────────────────
-            # q_Glc = ΔM_Glc / ΔITVC  (PDF §3.4)  positive = consumption
-            qglc_pg = (M_Glc1 - M_Glc2) / delta_ITVC * PG_PER_G * H_PER_DAY
+                # Y = ΔC_product / ΔC_substrate  (PDF §2.3)
+                glc_consumed = dGlc
+                lac_produced = dLac
+                gln_consumed = dGln
+                glu_produced = dGlu
+
+            # ── Write rates to DataFrame (both scenarios) ─────────────────────
             df.at[ic, QGLC]      = qglc_pg
             df.at[ic, QGLC_PMOL] = qglc_pg / MW_GLC
-
-            # ── Specific lactate production rate ──────────────────────────────
-            # q_Lac = ΔM_Lac / ΔITVC  (PDF §3.4)  positive = production
-            qlac_pg = (M_Lac2 - M_Lac1) / delta_ITVC * PG_PER_G * H_PER_DAY
             df.at[ic, QLAC]      = qlac_pg
             df.at[ic, QLAC_PMOL] = qlac_pg / MW_LAC
+            df.at[ic, QP]        = qP_pg
+            df.at[ic, QGLN_H]    = qgh
+            df.at[ic, QGLN_D]    = qgh * H_PER_DAY
+            df.at[ic, QGLU_H]    = qguh
+            df.at[ic, QGLU_D]    = qguh * H_PER_DAY
 
-            # ── Specific product (rP) production rate ─────────────────────────
-            # q_P = ΔM_rP / ΔITVC  [mg → pg: ×10^9]
-            df.at[ic, QP] = (M_rP2 - M_rP1) / delta_ITVC * 1e9 * H_PER_DAY
-
-            # ── Specific glutamine consumption rate ───────────────────────────
-            # q_Gln = ΔM_Gln / ΔITVC  [mmol → pmol: ×MMOL_TO_PMOL]
-            qgh = (M_Gln1 - M_Gln2) / delta_ITVC * MMOL_TO_PMOL
-            df.at[ic, QGLN_H] = qgh
-            df.at[ic, QGLN_D] = qgh * H_PER_DAY
-
-            # ── Specific glutamate production rate ────────────────────────────
-            qguh = (M_Glu2 - M_Glu1) / delta_ITVC * MMOL_TO_PMOL
-            df.at[ic, QGLU_H] = qguh
-            df.at[ic, QGLU_D] = qguh * H_PER_DAY
-
-            # ── Yields  Y = ΔM_product / ΔM_substrate  (PDF §2.3) ─────────────
-            # The /1000 factors from M = C×V/1000 cancel in the ratio.
-            glc_consumed = M_Glc1 - M_Glc2
-            lac_produced = M_Lac2 - M_Lac1
+            # ── Yields (both scenarios) ───────────────────────────────────────
             if glc_consumed > 0:
                 df.at[ic, Y_LG] = lac_produced / glc_consumed
-
-            gln_consumed = M_Gln1 - M_Gln2
-            glu_produced = M_Glu2 - M_Glu1
             if gln_consumed > 0:
                 df.at[ic, Y_GQ] = glu_produced / gln_consumed
 
-            # ── IVCD: integral de VCD  (PDF §2.2) ─────────────────────────────
+            # ── IVCD: always computed  (PDF §2.2) ─────────────────────────────
             # IVCD_2 = IVCD_1 + (VCD_1 + VCD_2)/2 × Δt
-            # Always computed; valid normalizer for constant-volume scenario.
             ivcd_int  = 0.5 * (v1 + v2) * dt
             ivcd_cum += ivcd_int
             df.at[ic, IVCD_INT] = ivcd_int
             df.at[ic, IVCD_CUM] = ivcd_cum
-
-            # ── ITVC: integral de TC  (PDF §3.3) — variable-volume only ───────
-            # ITVC_2 = ITVC_1 + (TC_1 + TC_2)/2 × Δt  = ITVC_1 + delta_ITVC
-            # delta_ITVC already computed above; accumulate for output.
-            if has_vol:
-                itvc_cum += delta_ITVC
-                df.at[ic, ITVC_INT] = delta_ITVC
-                df.at[ic, ITVC_CUM] = itvc_cum
 
             # ── Fluorescence rates of change ──────────────────────────────────
             for mean_col, rate_col, _ in _active_fluor(df):
