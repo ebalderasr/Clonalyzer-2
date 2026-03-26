@@ -94,29 +94,79 @@ clonalyzer_results.zip
 
 ## Methods
 
-### Cell average between timepoints
+Clonalyzer 2 computes specific rates interval by interval between consecutive timepoints using a trapezoidal approximation. Two scenarios are supported depending on whether culture volume data are available.
 
-All specific rates are normalized by the average viable cell count between consecutive timepoints, accounting for culture volume:
+### Specific growth rate
 
-$$\bar{N} = \frac{1}{2}\left(VCD_1 \cdot V_1 + VCD_2 \cdot V_2\right) \times 10^3 \quad \text{[cells]}$$
+μ is always calculated from viable cell density, regardless of the volume scenario:
 
-### Specific rates
+$$\mu = \frac{\ln(VCD_2 / VCD_1)}{\Delta t} \quad \text{[h}^{-1}\text{]}$$
 
-| Parameter | Formula | Units |
+> Using total cell counts (TC = VCD × V) for μ would produce artefactual negative values whenever volume drops during sampling. VCD is the correct basis.
+
+---
+
+### Scenario A — Constant volume (concentration-based)
+
+Used when `Vol_mL` is absent or the *Variable volume* checkbox is disabled. Rates are normalized by the **Integral Viable Cell Density (IVCD)**:
+
+$$\Delta IVCD = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t \quad \left[\frac{\text{cells} \cdot \text{h}}{\text{mL}}\right]$$
+
+The specific rate of metabolite $i$ is the concentration change per unit of biomass exposure:
+
+$$q_i = \frac{\Delta C_i}{\Delta IVCD} \quad \text{[pg or pmol / cell / day]}$$
+
+| Parameter | Numerator | Sign convention |
 |---|---|---|
-| μ | $\ln(VCD_2/VCD_1) \ / \ \Delta t$ | h⁻¹ |
-| qGlc | $\Delta(\text{Glc} \cdot V) \ / \ \Delta t \ / \ \bar{N} \div MW$ | pmol/cell/day |
-| qLac | $\Delta(\text{Lac} \cdot V) \ / \ \Delta t \ / \ \bar{N} \div MW$ | pmol/cell/day |
-| qGln | $\Delta(\text{Gln} \cdot V) \ / \ \Delta t \ / \ \bar{N}$ | pmol/cell/day |
-| qGlu | $\Delta(\text{Glu} \cdot V) \ / \ \Delta t \ / \ \bar{N}$ | pmol/cell/day |
-| qP | $\Delta(\text{rP} \cdot V) \ / \ \Delta t \ / \ \bar{N}$ | pg/cell/day |
-| Y Lac/Glc | $\Delta(\text{Lac} \cdot V) \ / \ \Delta(\text{Glc} \cdot V)$ | g/g |
-| Y Glu/Gln | $\Delta(\text{Glu} \cdot V) \ / \ \Delta(\text{Gln} \cdot V)$ | mol/mol |
-| IVCD | $\int VCD \ dt$ (cumulative trapezoid) | cells·h/mL |
+| qGlc | $Glc_1 - Glc_2$ | + consumed |
+| qLac | $Lac_2 - Lac_1$ | + produced |
+| qP | $rP_2 - rP_1$ | + produced |
+| qGln | $Gln_1 - Gln_2$ | + consumed |
+| qGlu | $Glu_2 - Glu_1$ | + produced |
+
+Metabolic yields are the ratio of concentration changes:
+
+$$Y_{Lac/Glc} = \frac{Lac_2 - Lac_1}{Glc_1 - Glc_2} \quad Y_{Glu/Gln} = \frac{Glu_2 - Glu_1}{Gln_1 - Gln_2}$$
+
+---
+
+### Scenario B — Variable volume (mass-balance)
+
+Used when `Vol_mL` is present and the *Variable volume* checkbox is enabled. Volume changes between timepoints — due to sampling, evaporation, or feeding — are accounted for explicitly via a mass balance.
+
+**Total viable cells** in the reactor at each timepoint:
+
+$$TC = VCD \times V \quad \text{[cells]}$$
+
+**Integral Total Viable Cells (ITVC):**
+
+$$\Delta ITVC = \frac{TC_1 + TC_2}{2} \cdot \Delta t \quad \text{[cells} \cdot \text{h]}$$
+
+**Total mass** of each metabolite in the reactor:
+
+$$M_i = C_i \times \frac{V}{1000} \quad \text{[g or mmol]}$$
+
+The specific rate is the change in total mass normalized by ITVC:
+
+$$q_i = \frac{\Delta M_i}{\Delta ITVC} \quad \text{[pg or pmol / cell / day]}$$
+
+| Parameter | Numerator | Sign convention |
+|---|---|---|
+| qGlc | $M_{Glc,1} - M_{Glc,2}$ | + consumed |
+| qLac | $M_{Lac,2} - M_{Lac,1}$ | + produced |
+| qP | $M_{rP,2} - M_{rP,1}$ | + produced |
+| qGln | $M_{Gln,1} - M_{Gln,2}$ | + consumed |
+| qGlu | $M_{Glu,2} - M_{Glu,1}$ | + produced |
+
+Metabolic yields are the ratio of mass changes:
+
+$$Y_{Lac/Glc} = \frac{M_{Lac,2} - M_{Lac,1}}{M_{Glc,1} - M_{Glc,2}} \quad Y_{Glu/Gln} = \frac{M_{Glu,2} - M_{Glu,1}}{M_{Gln,1} - M_{Gln,2}}$$
+
+---
 
 ### Fed-batch correction
 
-Intervals crossing a feed event (`is_post_feed` transition) are excluded from rate calculations. The apparent concentration change at that point reflects medium dilution, not cellular activity. Volume-corrected mass balances (S × V) handle dilution in all other intervals.
+Intervals where `is_post_feed` transitions from `FALSE` to `TRUE` are excluded from rate calculations. The apparent concentration change at that point reflects medium addition, not cellular activity. All other intervals are used normally; the mass-balance approach ($M = C \times V$) corrects for any remaining dilution in variable-volume runs.
 
 ---
 
@@ -125,7 +175,8 @@ Intervals crossing a feed event (`is_post_feed` transition) are excluded from ra
 | | |
 |---|---|
 | **Zero installation** | Runs fully client-side via Pyodide — no Python, no pip, no server |
-| **20+ kinetic parameters** | μ, qGlc, qLac, qP, qGln, qGlu, yields, IVCD, fluorescence kinetics |
+| **20+ kinetic parameters** | μ, qGlc, qLac, qP, qGln, qGlu, yields, IVCD/ITVC, fluorescence kinetics |
+| **Two calculation scenarios** | Constant-volume (ΔC/ΔIVCD) or variable-volume (ΔM/ΔITVC) — auto-detected from the input data |
 | **4 plot families** | Scatter · Mean ± SD · Exponential phase bars · Correlations |
 | **Fed-batch aware** | Feed events excluded automatically from rate calculations |
 | **Configurable phase window** | Set exponential phase start and end independently |
@@ -153,14 +204,14 @@ Intervals crossing a feed event (`is_post_feed` transition) are excluded from ra
 | `Lac_g_L` | Lactate | g/L |
 | `Gln_mM` | Glutamine | mM |
 | `Glu_mM` | Glutamate | mM |
-| `Vol_mL` | Culture volume | mL |
 
 ### Optional columns
 
-If present, fluorescence kinetics plots and correlation panels are generated automatically.
+If present, the corresponding features are enabled automatically.
 
 | Column | Description |
 |---|---|
+| `Vol_mL` | Culture volume (mL) — enables variable-volume mass-balance calculations |
 | `GFP_mean` / `GFP_std` | GFP fluorescence intensity (A.U.) |
 | `TMRM_mean` / `TMRM_std` | TMRM fluorescence intensity (A.U.) |
 
