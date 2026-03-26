@@ -40,7 +40,7 @@ FEED_COL = "is_post_feed"
 
 OPTIONAL_COLS = [
     "GFP_mean","GFP_std","TMRM_mean","TMRM_std",
-    "Bodipy_mean","Bodipy_std","CellRox_mean","CellRox_std",
+    "Bodipy_mean","Bodipy_std","CellROX_mean","CellROX_std",
 ]
 
 SCENARIO_VAR   = "variable_volume"   # Vol_mL present
@@ -69,7 +69,7 @@ ITVC_CUM  = "ITVC_cum_cells_h"
 DGFP      = "dGFP_dt"
 DTMRM     = "dTMRM_dt"
 DBODIPY   = "dBodipy_dt"
-DCELLROX  = "dCellRox_dt"
+DCELLROX  = "dCellROX_dt"
 PHASE     = "Fase_Cultivo"
 
 # Fluorescence channels: (intensity column, rate column, display label)
@@ -77,7 +77,7 @@ FLUOR_CHANNELS = [
     ("GFP_mean",     DGFP,     "GFP"),
     ("TMRM_mean",    DTMRM,    "TMRM"),
     ("Bodipy_mean",  DBODIPY,  "BODIPY"),
-    ("CellRox_mean", DCELLROX, "CellROX"),
+    ("CellROX_mean", DCELLROX, "CellROX"),
 ]
 
 # plot specs grouped for visual separation in the UI.
@@ -109,7 +109,7 @@ TS_GROUPS = [
         ("GFP_mean",    "GFP intensity (A.U.)",     "17_GFP",       None),
         ("TMRM_mean",   "TMRM intensity (A.U.)",    "18_TMRM",      None),
         ("Bodipy_mean", "BODIPY intensity (A.U.)",  "21_Bodipy",    None),
-        ("CellRox_mean","CellROX intensity (A.U.)", "22_CellRox",   None),
+        ("CellROX_mean","CellROX intensity (A.U.)", "22_CellRox",   None),
     ]),
     ("Fluorescence – Rate of Change", [
         (DGFP,          "dGFP/dt (A.U./h)",         "19_dGFP_dt",   None),
@@ -146,7 +146,7 @@ FLUOR_COL_TO_LABEL = {
     "GFP_mean":    "GFP",     DGFP:     "GFP",
     "TMRM_mean":   "TMRM",    DTMRM:    "TMRM",
     "Bodipy_mean": "BODIPY",  DBODIPY:  "BODIPY",
-    "CellRox_mean":"CellROX", DCELLROX: "CellROX",
+    "CellROX_mean":"CellROX", DCELLROX: "CellROX",
 }
 
 CORR_SPECS = [
@@ -164,9 +164,9 @@ CORR_SPECS = [
     ("GFP_mean",   "Bodipy_mean","GFP (A.U.)",            "BODIPY (A.U.)",        "63_GFP_vs_Bodipy"),
     (QP,           DBODIPY,      "qP (pg/cell/day)",      "dBODIPY/dt (A.U./h)",  "64_qP_vs_dBodipydt"),
     # CellROX
-    (QP,           "CellRox_mean","qP (pg/cell/day)",     "CellROX (A.U.)",       "65_qP_vs_CellRox"),
-    (QGLC_PMOL,    "CellRox_mean","qGlc (pmol/cell/day)", "CellROX (A.U.)",       "66_qGlc_vs_CellRox"),
-    ("Bodipy_mean","CellRox_mean","BODIPY (A.U.)",        "CellROX (A.U.)",       "67_Bodipy_vs_CellRox"),
+    (QP,           "CellROX_mean","qP (pg/cell/day)",     "CellROX (A.U.)",       "65_qP_vs_CellRox"),
+    (QGLC_PMOL,    "CellROX_mean","qGlc (pmol/cell/day)", "CellROX (A.U.)",       "66_qGlc_vs_CellRox"),
+    ("Bodipy_mean","CellROX_mean","BODIPY (A.U.)",        "CellROX (A.U.)",       "67_Bodipy_vs_CellRox"),
     (QP,           DCELLROX,     "qP (pg/cell/day)",      "dCellROX/dt (A.U./h)", "68_qP_vs_dCellRoxdt"),
 ]
 
@@ -200,7 +200,7 @@ CUSTOM_CORR_COLS = [
     ("dGFP/dt (A.U./h)",         DGFP),
     ("dTMRM/dt (A.U./h)",        DTMRM),
     ("BODIPY intensity (A.U.)",  "Bodipy_mean"),
-    ("CellROX intensity (A.U.)", "CellRox_mean"),
+    ("CellROX intensity (A.U.)", "CellROX_mean"),
     ("dBODIPY/dt (A.U./h)",      DBODIPY),
     ("dCellROX/dt (A.U./h)",     DCELLROX),
 ]
