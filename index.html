@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clonalyzer</title>
+  <title>Clonalyzer — CHO Culture Kinetics</title>
 
-  <!-- Bootstrap 5 -->
+  <!-- Bootstrap 5 (CSS for modal + tabs JS) -->
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
-  <!-- MathJax (equation rendering) -->
+  <!-- MathJax -->
   <script>
     window.MathJax = {
       tex: { inlineMath: [["$","$"],["\\(","\\)"]] },
@@ -18,7 +18,7 @@
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
   <!-- Pyodide -->
   <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
-  <!-- Plotly.js – interactive charts -->
+  <!-- Plotly.js -->
   <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.35.2/plotly.min.js"></script>
   <!-- JSZip + FileSaver -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -30,60 +30,65 @@
 <body>
 
   <!-- ── Header ─────────────────────────────────────────────────────────────── -->
-  <header>
-    <div class="container d-flex align-items-center justify-content-between">
-      <div>
-        <h1>⚗ Clonalyzer</h1>
-        <span class="subtitle">CHO fed-batch culture kinetics analysis</span>
-      </div>
-      <div class="d-flex gap-2">
-        <button class="btn btn-outline-primary btn-sm"
-                data-bs-toggle="modal" data-bs-target="#methodsModal">
-          Methods
-        </button>
-        <a href="https://github.com/ebalderasr/Clonalyzer-2"
-           target="_blank"
-           class="btn btn-outline-secondary btn-sm">
-          GitHub
-        </a>
-      </div>
+  <header class="md-header">
+    <div class="md-header-inner">
+      <a class="md-header-logo" href="#">
+        <span class="md-header-logo-icon">⚗</span>
+        <h1 class="md-header-title">
+          Clonalyzer
+          <span>CHO fed-batch culture kinetics analysis</span>
+        </h1>
+      </a>
+      <div class="md-header-spacer"></div>
+      <a class="md-header-suite" href="#">HostCell Lab Suite</a>
+      <button class="btn-md-text" data-bs-toggle="modal" data-bs-target="#methodsModal">
+        Methods
+      </button>
+      <a href="https://github.com/ebalderasr/Clonalyzer-2"
+         target="_blank" rel="noopener noreferrer"
+         class="btn-md-text">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z"/>
+        </svg>
+        GitHub
+      </a>
     </div>
   </header>
 
-  <main class="container pb-5">
+  <main class="md-main">
 
     <!-- ── Python init ───────────────────────────────────────────────────────── -->
-    <div id="init-section" class="section-card text-center">
-      <div class="spinner-border mb-3" role="status">
-        <span class="visually-hidden">Loading…</span>
-      </div>
-      <p id="init-msg" class="mb-2 fw-semibold">Loading Python runtime…</p>
-      <div class="progress mx-auto" style="max-width:360px;">
-        <div id="init-bar"
-             class="progress-bar"
-             role="progressbar"
-             style="width:0%"
-             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+    <div id="init-section" class="md-card text-center" style="padding: 48px 24px;">
+      <div class="md-spinner"></div>
+      <p id="init-msg" class="mb-3" style="font-size:15px;font-weight:500;color:var(--md-text);">
+        Loading Python runtime…
+      </p>
+      <div class="md-progress-track mx-auto mb-4" style="max-width:360px;">
+        <div id="init-bar" class="md-progress-bar" style="width:0%"
+             role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
         </div>
       </div>
-      <p class="text-muted small mt-3">
+      <p style="font-size:12px;color:var(--md-text-secondary);margin:0;">
         First load takes ~30 s while the scientific Python stack downloads.<br>
         Subsequent analyses on the same session are instant.
       </p>
     </div>
 
     <!-- ── Upload ────────────────────────────────────────────────────────────── -->
-    <div id="upload-section" class="section-card d-none">
+    <div id="upload-section" class="md-card d-none">
 
-      <h2 class="fs-5 fw-semibold mb-1">Upload your data</h2>
-      <p class="text-muted small mb-3">
+      <h2 class="md-card-title">Upload your data</h2>
+      <p class="md-card-subtitle">
         CSV with two header rows (row 1 = labels, row 2 = column names).
-        <a href="#csv-spec" data-bs-toggle="collapse">See format ▾</a>
+        <a href="#csv-spec" data-bs-toggle="collapse"
+           style="color:var(--md-primary);text-decoration:none;font-weight:500;">
+          See format ▾
+        </a>
       </p>
 
       <!-- CSV format reference (collapsible) -->
-      <div id="csv-spec" class="collapse mb-3">
-        <div class="alert alert-light border small font-monospace">
+      <div id="csv-spec" class="collapse mb-4">
+        <div class="md-code-block">
           <strong>Row 1</strong> – Human-readable labels (any text, ignored)<br>
           <strong>Row 2</strong> – Column names:
           <code>t_hr, Clone, Rep, is_post_feed, VCD, DCD, Viab_pct, rP_mg_L,
@@ -95,84 +100,86 @@
       </div>
 
       <!-- Settings -->
-      <div class="settings-row d-flex flex-wrap align-items-center gap-3 mb-4">
-        <label>Exponential phase:</label>
+      <div class="md-settings-row">
+        <label for="exp-phase-start">Exponential phase:</label>
         <input id="exp-phase-start"
                type="number" class="form-control form-control-sm"
                value="0" min="0" max="9999" step="1" />
-        <span class="text-muted small">h  to</span>
+        <span style="font-size:13px;color:var(--md-text-secondary);">h &nbsp;to</span>
         <input id="exp-phase-end"
                type="number" class="form-control form-control-sm"
                value="96" min="1" max="9999" step="1" />
-        <span class="text-muted small">h</span>
+        <span style="font-size:13px;color:var(--md-text-secondary);">h</span>
       </div>
 
-      <!-- Checkboxes row -->
-      <div class="d-flex flex-wrap gap-4 mb-3">
+      <!-- Checkboxes -->
+      <div class="d-flex flex-wrap gap-4 mb-4">
         <div class="form-check">
-          <input class="form-check-input" type="checkbox"
-                 id="skip-first-row" checked />
-          <label class="form-check-label small" for="skip-first-row">
-            Skip first row <span class="text-muted">(uncheck if your CSV has no metadata row)</span>
+          <input class="form-check-input" type="checkbox" id="skip-first-row" checked />
+          <label class="form-check-label" for="skip-first-row">
+            Skip first row
+            <span style="color:var(--md-text-secondary);">(uncheck if your CSV has no metadata row)</span>
           </label>
         </div>
         <div class="form-check">
-          <input class="form-check-input" type="checkbox"
-                 id="use-volume" checked />
-          <label class="form-check-label small" for="use-volume">
+          <input class="form-check-input" type="checkbox" id="use-volume" checked />
+          <label class="form-check-label" for="use-volume">
             Variable volume
-            <span class="text-muted">(use <code>Vol_mL</code> for mass-balance calculations; uncheck to force concentration-based)</span>
+            <span style="color:var(--md-text-secondary);">(use <code>Vol_mL</code> for mass-balance calculations; uncheck to force concentration-based)</span>
           </label>
         </div>
       </div>
 
       <!-- Fluorescence channel selector -->
-      <div class="mb-3">
-        <label class="form-label small fw-semibold mb-1">
+      <div class="mb-4">
+        <p style="font-size:13px;font-weight:500;color:var(--md-text);margin:0 0 8px;">
           Fluorescence channels
-          <span class="text-muted fw-normal">(uncheck to exclude a channel even if present in the CSV)</span>
-        </label>
+          <span style="font-weight:400;color:var(--md-text-secondary);">(uncheck to exclude a channel even if present in the CSV)</span>
+        </p>
         <div class="d-flex flex-wrap gap-3">
           <div class="form-check">
             <input class="form-check-input" type="checkbox" id="fluor-gfp" checked />
-            <label class="form-check-label small" for="fluor-gfp">GFP</label>
+            <label class="form-check-label" for="fluor-gfp">GFP</label>
           </div>
           <div class="form-check">
             <input class="form-check-input" type="checkbox" id="fluor-tmrm" checked />
-            <label class="form-check-label small" for="fluor-tmrm">TMRM</label>
+            <label class="form-check-label" for="fluor-tmrm">TMRM</label>
           </div>
           <div class="form-check">
             <input class="form-check-input" type="checkbox" id="fluor-bodipy" checked />
-            <label class="form-check-label small" for="fluor-bodipy">BODIPY</label>
+            <label class="form-check-label" for="fluor-bodipy">BODIPY</label>
           </div>
           <div class="form-check">
             <input class="form-check-input" type="checkbox" id="fluor-cellrox" checked />
-            <label class="form-check-label small" for="fluor-cellrox">CellROX</label>
+            <label class="form-check-label" for="fluor-cellrox">CellROX</label>
           </div>
         </div>
       </div>
 
       <!-- Drop zone -->
-      <div id="drop-zone">
-        <span class="icon">📂</span>
-        <p class="fw-semibold mb-1">Drag &amp; drop your CSV here</p>
-        <p class="small">or click to browse</p>
+      <div id="drop-zone" class="md-drop-zone">
+        <div class="md-upload-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <p class="md-drop-title">Drag &amp; drop your CSV here</p>
+        <p class="md-drop-sub">or click to browse files</p>
         <input id="file-input" type="file" accept=".csv" class="d-none" />
       </div>
     </div>
 
     <!-- ── Processing ─────────────────────────────────────────────────────────── -->
-    <div id="process-section" class="section-card text-center d-none">
-      <div class="spinner-border text-primary mb-3" role="status">
-        <span class="visually-hidden">Processing…</span>
-      </div>
-      <p id="process-msg" class="fw-semibold mb-2">Processing…</p>
-      <div class="progress mx-auto" style="max-width:400px;">
-        <div id="process-bar"
-             class="progress-bar progress-bar-striped progress-bar-animated"
-             role="progressbar"
-             style="width:0%"
-             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+    <div id="process-section" class="md-card text-center d-none" style="padding: 48px 24px;">
+      <div class="md-spinner"></div>
+      <p id="process-msg" style="font-size:15px;font-weight:500;color:var(--md-text);margin-bottom:16px;">
+        Processing…
+      </p>
+      <div class="md-progress-track mx-auto" style="max-width:400px;">
+        <div id="process-bar" class="md-progress-bar" style="width:0%"
+             role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
         </div>
       </div>
     </div>
@@ -180,17 +187,18 @@
     <!-- ── Results ────────────────────────────────────────────────────────────── -->
     <div id="results-section" class="d-none">
 
-      <!-- Info cards -->
-      <div class="section-card">
-        <h2 class="fs-5 fw-semibold mb-3">Dataset summary</h2>
-        <div id="info-cards" class="row g-3"></div>
+      <!-- Dataset summary -->
+      <div class="md-card">
+        <h2 class="md-card-title">Dataset summary</h2>
+        <div id="info-cards" class="row g-3 mt-1"></div>
       </div>
 
       <!-- Clone color pickers -->
-      <div id="clone-colors-section" class="section-card mt-3 d-none">
+      <div id="clone-colors-section" class="md-card d-none">
         <div class="d-flex align-items-center gap-3 mb-3">
-          <h2 class="fs-5 fw-semibold mb-0">Clone colors</h2>
-          <button id="btn-apply-colors" class="btn btn-outline-primary btn-sm"
+          <h2 class="md-card-title mb-0">Clone colors</h2>
+          <button id="btn-apply-colors" class="btn-md-outlined"
+                  style="padding:6px 16px;font-size:13px;"
                   onclick="applyCloneColors()">
             Apply to all charts
           </button>
@@ -199,32 +207,32 @@
       </div>
 
       <!-- Plots -->
-      <div class="section-card mt-3">
-        <h2 class="fs-5 fw-semibold mb-3">Plots</h2>
+      <div class="md-card">
+        <h2 class="md-card-title mb-3">Plots</h2>
 
-        <!-- Tab nav -->
-        <ul id="plot-tabs" class="nav nav-tabs mb-3" role="tablist">
+        <!-- Tab nav (Bootstrap tabs restyled as M3) -->
+        <ul id="plot-tabs" class="nav nav-tabs" role="tablist">
           <li class="nav-item">
             <button class="nav-link active" data-bs-toggle="tab"
-                    data-bs-target="#tab-scatter-pane" type="button">
+                    data-bs-target="#tab-scatter-pane" type="button" role="tab">
               Scatter
             </button>
           </li>
           <li class="nav-item">
             <button class="nav-link" data-bs-toggle="tab"
-                    data-bs-target="#tab-lines-pane" type="button">
+                    data-bs-target="#tab-lines-pane" type="button" role="tab">
               Mean ± SD
             </button>
           </li>
           <li class="nav-item">
             <button class="nav-link" data-bs-toggle="tab"
-                    data-bs-target="#tab-bars-pane" type="button">
+                    data-bs-target="#tab-bars-pane" type="button" role="tab">
               Exp Phase
             </button>
           </li>
           <li class="nav-item">
             <button class="nav-link" data-bs-toggle="tab"
-                    data-bs-target="#tab-corr-pane" type="button">
+                    data-bs-target="#tab-corr-pane" type="button" role="tab">
               Correlations
             </button>
           </li>
@@ -232,41 +240,44 @@
 
         <!-- Tab panes -->
         <div class="tab-content">
-          <div id="tab-scatter-pane" class="tab-pane fade show active">
+          <div id="tab-scatter-pane" class="tab-pane fade show active" role="tabpanel">
             <div id="tab-scatter" class="row"></div>
           </div>
-          <div id="tab-lines-pane" class="tab-pane fade">
+          <div id="tab-lines-pane" class="tab-pane fade" role="tabpanel">
             <div id="tab-lines" class="row"></div>
           </div>
-          <div id="tab-bars-pane" class="tab-pane fade">
+          <div id="tab-bars-pane" class="tab-pane fade" role="tabpanel">
             <div id="tab-bars" class="row"></div>
           </div>
-          <div id="tab-corr-pane" class="tab-pane fade">
+          <div id="tab-corr-pane" class="tab-pane fade" role="tabpanel">
             <div id="tab-correlations" class="row"></div>
           </div>
         </div>
       </div>
 
       <!-- Custom correlations -->
-      <div id="custom-corr-section" class="mt-3">
-        <h2 class="fs-5 fw-semibold mb-3">Custom Correlations</h2>
-        <p class="text-muted small mb-3">
+      <div id="custom-corr-section" class="md-card">
+        <h2 class="md-section-title">Custom Correlations</h2>
+        <p class="md-section-subtitle">
           Choose any two variables to generate a correlation plot.
           Color = clone · Marker = phase · Regression line per clone × phase.
         </p>
-        <div class="d-flex flex-wrap gap-2 align-items-end mb-4">
+        <div class="d-flex flex-wrap gap-3 align-items-end mb-4">
           <div>
-            <label class="form-label small mb-1 text-muted">X axis</label>
-            <select id="custom-x" class="form-select form-select-sm"
-                    style="min-width:220px"></select>
+            <label style="display:block;font-size:12px;font-weight:500;color:var(--md-text-secondary);margin-bottom:4px;">
+              X axis
+            </label>
+            <select id="custom-x" class="form-select form-select-sm" style="min-width:220px;"></select>
           </div>
           <div>
-            <label class="form-label small mb-1 text-muted">Y axis</label>
-            <select id="custom-y" class="form-select form-select-sm"
-                    style="min-width:220px"></select>
+            <label style="display:block;font-size:12px;font-weight:500;color:var(--md-text-secondary);margin-bottom:4px;">
+              Y axis
+            </label>
+            <select id="custom-y" class="form-select form-select-sm" style="min-width:220px;"></select>
           </div>
           <button id="btn-custom-corr"
-                  class="btn btn-outline-primary btn-sm align-self-end"
+                  class="btn-md-outlined"
+                  style="align-self:flex-end;"
                   onclick="generateCustomCorr()">
             Generate plot
           </button>
@@ -274,33 +285,34 @@
         <div id="custom-corr-gallery" class="row"></div>
       </div>
 
-      <!-- Download + Analyze another -->
-      <div class="section-card mt-3 d-flex flex-wrap gap-3 align-items-center">
-        <button id="btn-download"
-                class="btn btn-primary"
-                onclick="downloadZip()">
-          ⬇ Download results (.zip)
+      <!-- Action bar: Download + Analyze another -->
+      <div class="md-action-bar">
+        <button id="btn-download" class="btn-md-fab" onclick="downloadZip()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download results (.zip)
         </button>
-        <button class="btn btn-outline-secondary"
-                onclick="analyzeAnother()">
+        <button class="btn-md-outlined" onclick="analyzeAnother()">
           Analyze another file
         </button>
-        <span class="text-muted small ms-auto">
-          ZIP includes processed CSVs + all plot images
-        </span>
+        <span class="md-action-hint">ZIP includes processed CSVs + all plot images</span>
       </div>
 
     </div><!-- /results -->
 
   </main>
 
-  <footer class="app-footer">
-    <div class="app-footer-inner">
-      <div class="footer-suite">
-        <span class="footer-hostcell">Host Cell Lab Suite</span>
-        <span class="footer-desc">Practical tools for high-performance biotechnology · IBt-UNAM</span>
+  <!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+  <footer class="md-footer">
+    <div class="md-footer-inner">
+      <div class="md-footer-suite">
+        <span class="md-footer-suite-name">HostCell Lab Suite</span>
+        <span class="md-footer-suite-desc">Practical tools for high-performance biotechnology · IBt-UNAM</span>
       </div>
-      <div class="footer-author">
+      <div class="md-footer-author">
         <strong>Emiliano Balderas Ramírez</strong>
         <span>Instituto de Biotecnología · UNAM</span>
       </div>
@@ -309,7 +321,7 @@
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z"/>
         </svg>
-        Ver en GitHub
+        GitHub
       </a>
     </div>
   </footer>
@@ -321,7 +333,7 @@
       <div class="modal-content">
 
         <div class="modal-header">
-          <h4 class="modal-title fw-bold" id="methodsModalLabel">Methods</h4>
+          <h4 class="modal-title" id="methodsModalLabel">Methods</h4>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
 
@@ -339,12 +351,12 @@
           </p>
           <ul>
             <li>
-              <span class="badge bg-info text-dark">Variable volume</span>
+              <span class="badge bg-info">Variable volume</span>
               — mass-balance approach using <code>Vol_mL</code>; rates normalized by
               ITVC (Integral Total Viable Cells).
             </li>
             <li>
-              <span class="badge bg-warning text-dark">Constant volume</span>
+              <span class="badge bg-warning">Constant volume</span>
               — concentration-based approach; rates normalized by
               IVCD (Integral Viable Cell Density). Used when <code>Vol_mL</code> is
               absent or the <em>Variable volume</em> checkbox is disabled.
@@ -415,17 +427,17 @@
                 <tr>
                   <td>72</td><td><code>FALSE</code></td>
                   <td>2.1×10⁶</td><td>18.0</td><td>3.2</td>
-                  <td class="text-muted small">Sample taken <em>before</em> adding feed</td>
+                  <td style="font-size:12px;color:var(--md-text-secondary);">Sample taken <em>before</em> adding feed</td>
                 </tr>
                 <tr class="table-info">
                   <td>72</td><td><code>TRUE</code></td>
                   <td>1.8×10⁶</td><td>21.0</td><td>5.5</td>
-                  <td class="text-muted small">Sample taken <em>after</em> adding feed — diluted concentrations, larger volume</td>
+                  <td style="font-size:12px;color:var(--md-text-secondary);">Sample taken <em>after</em> adding feed — diluted concentrations, larger volume</td>
                 </tr>
                 <tr>
                   <td>96</td><td><code>FALSE</code></td>
                   <td>3.5×10⁶</td><td>19.8</td><td>4.1</td>
-                  <td class="text-muted small">Next regular sample</td>
+                  <td style="font-size:12px;color:var(--md-text-secondary);">Next regular sample</td>
                 </tr>
               </tbody>
             </table>
@@ -470,7 +482,6 @@
             actively dividing. VCD is independent of volume changes.
           </p>
 
-          <!-- 4.2 Constant volume -->
           <h6>4.2 Constant-volume scenario — concentration-based calculations</h6>
           <p>
             When the culture volume does not change significantly between timepoints
@@ -478,7 +489,7 @@
             metabolite production are tracked directly from concentration changes.
           </p>
 
-          <h6 class="text-muted fw-normal ms-3">4.2.1 Integral Viable Cell Density (IVCD)</h6>
+          <h6 style="font-weight:400;color:var(--md-text-secondary);margin-left:16px;">4.2.1 Integral Viable Cell Density (IVCD)</h6>
           <p>
             Specific rates are normalized by the total biomass exposure during the
             interval, approximated with the trapezoid rule:
@@ -486,12 +497,8 @@
           <div class="eq-block">
             $$IVCD_2 = IVCD_1 + \frac{VCD_1 + VCD_2}{2} \cdot \Delta t \quad \left[\frac{\text{cells} \cdot \text{h}}{\text{mL}}\right]$$
           </div>
-          <p>
-            IVCD represents the "total cellular effort" invested up to time $t$. It is the
-            fundamental denominator for specific rate calculations.
-          </p>
 
-          <h6 class="text-muted fw-normal ms-3">4.2.2 Specific consumption and production rates</h6>
+          <h6 style="font-weight:400;color:var(--md-text-secondary);margin-left:16px;">4.2.2 Specific consumption and production rates</h6>
           <p>
             For any metabolite, the specific rate is the concentration change normalized
             by the IVCD increment in that same interval:
@@ -506,46 +513,23 @@
                 <tr><th>Rate</th><th>Formula</th><th>Sign</th><th>Units</th></tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>qGlc</td>
-                  <td>$(Glc_1 - Glc_2)\,/\,\Delta IVCD$</td>
-                  <td>+ consumed</td><td>pg/cell/day</td>
-                </tr>
-                <tr>
-                  <td>qLac</td>
-                  <td>$(Lac_2 - Lac_1)\,/\,\Delta IVCD$</td>
-                  <td>+ produced</td><td>pg/cell/day</td>
-                </tr>
-                <tr>
-                  <td>qP</td>
-                  <td>$(rP_2 - rP_1)\,/\,\Delta IVCD$</td>
-                  <td>+ produced</td><td>pg/cell/day</td>
-                </tr>
-                <tr>
-                  <td>qGln</td>
-                  <td>$(Gln_1 - Gln_2)\,/\,\Delta IVCD$</td>
-                  <td>+ consumed</td><td>pmol/cell/h</td>
-                </tr>
-                <tr>
-                  <td>qGlu</td>
-                  <td>$(Glu_2 - Glu_1)\,/\,\Delta IVCD$</td>
-                  <td>+ produced</td><td>pmol/cell/h</td>
-                </tr>
+                <tr><td>qGlc</td><td>$(Glc_1 - Glc_2)\,/\,\Delta IVCD$</td><td>+ consumed</td><td>pg/cell/day</td></tr>
+                <tr><td>qLac</td><td>$(Lac_2 - Lac_1)\,/\,\Delta IVCD$</td><td>+ produced</td><td>pg/cell/day</td></tr>
+                <tr><td>qP</td><td>$(rP_2 - rP_1)\,/\,\Delta IVCD$</td><td>+ produced</td><td>pg/cell/day</td></tr>
+                <tr><td>qGln</td><td>$(Gln_1 - Gln_2)\,/\,\Delta IVCD$</td><td>+ consumed</td><td>pmol/cell/h</td></tr>
+                <tr><td>qGlu</td><td>$(Glu_2 - Glu_1)\,/\,\Delta IVCD$</td><td>+ produced</td><td>pmol/cell/h</td></tr>
               </tbody>
             </table>
           </div>
 
-          <h6 class="text-muted fw-normal ms-3">4.2.3 Metabolic yields</h6>
+          <h6 style="font-weight:400;color:var(--md-text-secondary);margin-left:16px;">4.2.3 Metabolic yields</h6>
           <div class="eq-block">
             $$Y_{Lac/Glc} = \frac{Lac_2 - Lac_1}{Glc_1 - Glc_2} \quad [\text{g/g}]
             \qquad
             Y_{Glu/Gln} = \frac{Glu_2 - Glu_1}{Gln_1 - Gln_2} \quad [\text{mol/mol}]$$
           </div>
-          <p>
-            Computed only when the denominator (substrate consumed) is positive.
-          </p>
+          <p>Computed only when the denominator (substrate consumed) is positive.</p>
 
-          <!-- 4.3 Variable volume -->
           <h6>4.3 Variable-volume scenario — mass-balance calculations</h6>
           <p>
             When culture volume changes between timepoints — due to sampling, evaporation,
@@ -555,35 +539,14 @@
             migrate to <strong>total masses and total cell counts</strong> inside the reactor.
           </p>
 
-          <h6 class="text-muted fw-normal ms-3">4.3.1 Total viable cells and ITVC</h6>
-          <p>
-            The total number of viable cells in the reactor at any timepoint is:
-          </p>
-          <div class="eq-block">
-            $$TC = VCD \times V$$
-          </div>
-          <p>
-            The integrated biomass exposure is then the trapezoid integral of $TC$:
-          </p>
+          <h6 style="font-weight:400;color:var(--md-text-secondary);margin-left:16px;">4.3.1 Total viable cells and ITVC</h6>
+          <div class="eq-block">$$TC = VCD \times V$$</div>
           <div class="eq-block">
             $$ITVC_2 = ITVC_1 + \frac{TC_1 + TC_2}{2} \cdot \Delta t \quad [\text{cells} \cdot \text{h}]$$
           </div>
-          <p>
-            Unlike IVCD, ITVC has no per-volume denominator — it counts the actual cells
-            that performed biological work inside the reactor.
-          </p>
 
-          <h6 class="text-muted fw-normal ms-3">4.3.2 Total masses and specific rates</h6>
-          <p>
-            The total mass (or moles) of each metabolite in the reactor is:
-          </p>
-          <div class="eq-block">
-            $$M_i = C_i \times V$$
-          </div>
-          <p>
-            The specific rate is then the change in total mass normalized by the ITVC
-            increment — a rigorous mass balance that eliminates any dilution artefact:
-          </p>
+          <h6 style="font-weight:400;color:var(--md-text-secondary);margin-left:16px;">4.3.2 Total masses and specific rates</h6>
+          <div class="eq-block">$$M_i = C_i \times V$$</div>
           <div class="eq-block">
             $$q_i = \frac{\Delta M_i}{\Delta ITVC} \quad \text{where} \quad \Delta ITVC = \frac{TC_1 + TC_2}{2} \cdot \Delta t$$
           </div>
@@ -594,51 +557,23 @@
                 <tr><th>Rate</th><th>Formula</th><th>Sign</th><th>Units</th></tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>qGlc</td>
-                  <td>$(M_{Glc,1} - M_{Glc,2})\,/\,\Delta ITVC$</td>
-                  <td>+ consumed</td><td>pg/cell/day</td>
-                </tr>
-                <tr>
-                  <td>qLac</td>
-                  <td>$(M_{Lac,2} - M_{Lac,1})\,/\,\Delta ITVC$</td>
-                  <td>+ produced</td><td>pg/cell/day</td>
-                </tr>
-                <tr>
-                  <td>qP</td>
-                  <td>$(M_{rP,2} - M_{rP,1})\,/\,\Delta ITVC$</td>
-                  <td>+ produced</td><td>pg/cell/day</td>
-                </tr>
-                <tr>
-                  <td>qGln</td>
-                  <td>$(M_{Gln,1} - M_{Gln,2})\,/\,\Delta ITVC$</td>
-                  <td>+ consumed</td><td>pmol/cell/h</td>
-                </tr>
-                <tr>
-                  <td>qGlu</td>
-                  <td>$(M_{Glu,2} - M_{Glu,1})\,/\,\Delta ITVC$</td>
-                  <td>+ produced</td><td>pmol/cell/h</td>
-                </tr>
+                <tr><td>qGlc</td><td>$(M_{Glc,1} - M_{Glc,2})\,/\,\Delta ITVC$</td><td>+ consumed</td><td>pg/cell/day</td></tr>
+                <tr><td>qLac</td><td>$(M_{Lac,2} - M_{Lac,1})\,/\,\Delta ITVC$</td><td>+ produced</td><td>pg/cell/day</td></tr>
+                <tr><td>qP</td><td>$(M_{rP,2} - M_{rP,1})\,/\,\Delta ITVC$</td><td>+ produced</td><td>pg/cell/day</td></tr>
+                <tr><td>qGln</td><td>$(M_{Gln,1} - M_{Gln,2})\,/\,\Delta ITVC$</td><td>+ consumed</td><td>pmol/cell/h</td></tr>
+                <tr><td>qGlu</td><td>$(M_{Glu,2} - M_{Glu,1})\,/\,\Delta ITVC$</td><td>+ produced</td><td>pmol/cell/h</td></tr>
               </tbody>
             </table>
           </div>
 
-          <h6 class="text-muted fw-normal ms-3">4.3.3 Metabolic yields</h6>
+          <h6 style="font-weight:400;color:var(--md-text-secondary);margin-left:16px;">4.3.3 Metabolic yields</h6>
           <div class="eq-block">
             $$Y_{Lac/Glc} = \frac{M_{Lac,2} - M_{Lac,1}}{M_{Glc,1} - M_{Glc,2}} \quad [\text{g/g}]
             \qquad
             Y_{Glu/Gln} = \frac{M_{Glu,2} - M_{Glu,1}}{M_{Gln,1} - M_{Gln,2}} \quad [\text{mol/mol}]$$
           </div>
-          <p>
-            Using masses instead of concentrations ensures that yields are not distorted
-            by volume changes between timepoints.
-          </p>
 
           <h6>4.4 Fluorescence rates (optional)</h6>
-          <p>
-            When GFP and TMRM columns are present, the rate of change is computed as
-            a simple finite difference:
-          </p>
           <div class="eq-block">
             $$\frac{dGFP}{dt} = \frac{GFP_2 - GFP_1}{\Delta t} \quad [\text{A.U./h}]
             \qquad
@@ -656,9 +591,6 @@
           </ul>
           <p>
             Both limits are set in the upload form before running the analysis.
-            This allows excluding the inoculation lag period from μ and rate calculations
-            by raising <em>t</em><sub>start</sub>, or capturing only the peak-productivity
-            window by narrowing the window.
             The exponential-phase summary statistics (bar-chart tab) are computed as the
             mean of interval rates across all replicates and timepoints strictly within
             the defined window.
@@ -666,11 +598,6 @@
 
           <!-- 6. Volume handling -->
           <h5>6. Volume handling: constant vs variable volume</h5>
-          <p>
-            Clonalyzer auto-detects the calculation scenario based on whether the
-            <code>Vol_mL</code> column is present in the CSV <strong>and</strong>
-            the <em>Variable volume</em> checkbox is enabled in the upload form.
-          </p>
 
           <div class="table-responsive mb-3">
             <table class="table table-sm table-bordered align-middle">
@@ -684,13 +611,13 @@
               </thead>
               <tbody>
                 <tr>
-                  <td><span class="badge bg-info text-dark">Variable volume</span></td>
+                  <td><span class="badge bg-info">Variable volume</span></td>
                   <td><code>Vol_mL</code> present + checkbox on</td>
                   <td>ITVC (cells·h)</td>
                   <td>$q_S = \Delta(S \cdot V)\,/\,\Delta t\,/\,\Delta ITVC$</td>
                 </tr>
                 <tr>
-                  <td><span class="badge bg-warning text-dark">Constant volume</span></td>
+                  <td><span class="badge bg-warning">Constant volume</span></td>
                   <td><code>Vol_mL</code> absent or checkbox off</td>
                   <td>IVCD (cells·h/mL)</td>
                   <td>$q_S = \Delta C_S\,/\,\Delta t\,/\,\Delta IVCD$</td>
@@ -700,93 +627,45 @@
           </div>
 
           <h6>6.1 Variable-volume scenario (mass-balance)</h6>
-          <p>
-            When culture volume changes — due to evaporation, sampling, or medium
-            addition — measuring concentration alone is insufficient, because a drop in
-            glucose concentration could reflect either cellular consumption <em>or</em>
-            simple dilution by the feed. The correct approach is to track the
-            <strong>total mass</strong> of each metabolite:
-          </p>
-          <div class="eq-block">
-            $$M_S = C_S \times V \quad [\text{g or mmol}]$$
-          </div>
-          <p>
-            The specific rate is then the change in total mass normalized by the
-            integral of total viable cells (ITVC):
-          </p>
-          <div class="eq-block">
-            $$q_S = \frac{M_{S,1} - M_{S,2}}{\Delta ITVC}$$
-          </div>
-          <p>
-            where $\Delta ITVC$ is the trapezoidal integral of total viable cells in
-            the interval:
-          </p>
+          <div class="eq-block">$$M_S = C_S \times V \quad [\text{g or mmol}]$$</div>
+          <div class="eq-block">$$q_S = \frac{M_{S,1} - M_{S,2}}{\Delta ITVC}$$</div>
           <div class="eq-block">
             $$\Delta ITVC = \frac{TC_1 + TC_2}{2} \cdot \Delta t
             \quad TC = VCD \times V \quad [\text{cells·h}]$$
           </div>
 
           <h6>6.2 Constant-volume scenario (concentration-based)</h6>
-          <p>
-            When the culture volume is constant — or when volume data are unavailable —
-            every mass term $C_S \times V$ simplifies to $C_S$ (volume cancels).
-            The formulas reduce to:
-          </p>
-          <div class="eq-block">
-            $$q_S = \frac{C_{S,1} - C_{S,2}}{\Delta IVCD}$$
-          </div>
-          <p>
-            where $\Delta IVCD$ is the trapezoidal integral of VCD in the interval:
-          </p>
+          <div class="eq-block">$$q_S = \frac{C_{S,1} - C_{S,2}}{\Delta IVCD}$$</div>
           <div class="eq-block">
             $$\Delta IVCD = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t
             \quad [\text{cells·h/mL}]$$
           </div>
-          <p>
-            Mathematically, this scenario is a special case of the variable-volume
-            approach with $V = 1\,\text{mL}$ — the same code path handles both.
-          </p>
 
           <h6>6.3 Growth rate μ — always VCD-based</h6>
-          <p>
-            Regardless of the volume scenario, the specific growth rate always uses
-            viable cell density (VCD), not total cell count:
-          </p>
           <div class="eq-block">
             $$\mu = \frac{\ln(VCD_2 / VCD_1)}{\Delta t} \quad [\text{h}^{-1}]$$
           </div>
-          <p>
-            Using total cells for μ would produce spurious <em>negative</em> growth
-            rates whenever the culture volume decreases (e.g., sampling removes
-            volume), because cell count drops even though the cells are actively
-            growing. VCD is a concentration, so it is independent of volume changes.
-          </p>
 
           <h6>6.4 Choosing the right scenario</h6>
           <ul>
             <li>
               <strong>Use variable volume</strong> (default, if <code>Vol_mL</code> is present)
               when running <span class="tag-fedbatch">fed-batch</span> cultures with
-              significant volume changes between feeds, or whenever accurate mass
-              accounting is desired.
+              significant volume changes between feeds.
             </li>
             <li>
-              <strong>Force constant volume</strong> (uncheck the checkbox) when
-              <code>Vol_mL</code> is present but you wish to compare results directly
-              with literature or previous datasets that used a concentration-based
-              approach, or when volume variations are negligible.
+              <strong>Force constant volume</strong> (uncheck the checkbox) when comparing
+              with literature or previous concentration-based datasets.
             </li>
             <li>
-              If <code>Vol_mL</code> is absent from the CSV, the constant-volume
-              scenario is used automatically regardless of the checkbox state.
+              If <code>Vol_mL</code> is absent from the CSV, constant-volume is used automatically.
             </li>
           </ul>
 
         </div><!-- /modal-body -->
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary"
-                  data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn-md-outlined" data-bs-dismiss="modal">Close</button>
         </div>
 
       </div>
@@ -797,6 +676,5 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <!-- App -->
   <script src="app.js"></script>
-
 </body>
 </html>
