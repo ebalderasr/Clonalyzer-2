@@ -142,20 +142,22 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: .55rem .85rem;
-  border-radius: var(--hc-radius-md);
-  background: linear-gradient(135deg, #f5f9ff 0%, #e8f0fe 100%);
-  border: 1px solid #c5d9fb;
-  box-shadow: var(--hc-shadow-sm);
+  padding: 0.55rem 0.85rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #F5F9FF 0%, #E8F0FE 100%);
+  border: 1px solid #C5D9FB;
+  box-shadow: 0 1px 4px rgba(60,64,67,0.16);
   min-width: 0;
-  text-decoration: none;
+  font-family: 'Google Sans', 'Roboto', sans-serif;
+  line-height: 1;
+  text-decoration: none !important;
   transition: transform 110ms ease, box-shadow 130ms ease, background 130ms ease;
 }
 
 .hc-suite-pill:hover {
   transform: translateY(-1px);
-  box-shadow: var(--hc-shadow-md);
-  background: linear-gradient(135deg, #eef5ff 0%, #dcebff 100%);
+  box-shadow: 0 4px 14px rgba(60,64,67,0.18);
+  background: linear-gradient(135deg, #EEF5FF 0%, #DCEBFF 100%);
 }
 
 .hc-suite-pill:visited {
@@ -163,10 +165,12 @@ body {
 }
 
 .hc-suite-label {
-  font-size: .76rem;
+  font-family: 'Google Sans', 'Roboto', sans-serif;
+  font-size: 0.76rem;
   font-weight: 800;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   color: #4285F4;
+  line-height: 1;
   white-space: nowrap;
   text-transform: uppercase;
 }
@@ -564,22 +568,25 @@ body {
   left: 0;
   right: 0;
   height: var(--hc-footer-height);
-  background: rgba(248,249,250,.96);
+  width: 100%;
+  background: rgba(248, 249, 250, 0.96);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-top: 1px solid var(--md-border);
-  box-shadow: 0 -1px 8px rgba(60,64,67,.07);
-  z-index: 999;
+  box-shadow: 0 -1px 8px rgba(60,64,67,0.07);
+  z-index: 9999;
   box-sizing: border-box;
 }
 
 .hc-footer-inner {
   height: 100%;
+  width: 100%;
   padding: 0 1.6rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 1.5rem;
+  font-family: 'Roboto', 'Google Sans', sans-serif;
 }
 
 .hc-footer-suite {
@@ -590,21 +597,21 @@ body {
 }
 
 .hc-footer-name {
-  font-size: .83rem;
+  font-size: 0.83rem;
   font-weight: 700;
-  color: var(--md-primary);
+  color: #4285F4;
   white-space: nowrap;
 }
 
 .hc-footer-slogan {
-  font-size: .67rem;
+  font-size: 0.67rem;
   color: var(--md-text-secondary);
   white-space: nowrap;
   font-style: italic;
 }
 
 .hc-footer-author {
-  font-size: .78rem;
+  font-size: 0.78rem;
   color: var(--md-text-secondary);
   white-space: nowrap;
   margin-left: auto;
