@@ -189,7 +189,9 @@ function displayResults(r) {
     renderPlotTab("tab-correlations", r.plots.correlations);
     document.querySelector("#plot-tabs .nav-link")?.click();
     populateCustomCorrSelects(r.avail_cols || []);
+    populateMultiAxisTool(r.info.clones || [], r.avail_cols || []);
     document.getElementById("custom-corr-gallery").innerHTML = "";
+    document.getElementById("multi-axis-gallery").innerHTML = "";
     // Resize first-tab charts after the browser has finished layout
     requestAnimationFrame(() => requestAnimationFrame(() => {
         document.querySelectorAll(".tab-pane.active .js-plotly-plot")
@@ -245,6 +247,7 @@ async function applyCloneColors() {
         }
         // Clear custom correlations (they'll be regenerated with new colors on demand)
         document.getElementById("custom-corr-gallery").innerHTML = "";
+        document.getElementById("multi-axis-gallery").innerHTML = "";
     } catch (err) {
         alert("Error applying colors: " + err.message);
         console.error(err);
@@ -427,6 +430,8 @@ function analyzeAnother() {
     elFileInput.value = "";
     hide(elResultsSection);
     hide(document.getElementById("clone-colors-section"));
+    document.getElementById("custom-corr-gallery").innerHTML = "";
+    document.getElementById("multi-axis-gallery").innerHTML = "";
     show(elUploadSection);
     elUploadSection.scrollIntoView({ behavior: "smooth" });
 }
@@ -495,6 +500,145 @@ function addCustomCorrPlot(xlabel, ylabel, spec) {
         <div class="card shadow-sm h-100">
             <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center">
                 <span class="small text-muted fw-semibold">${xlabel} vs ${ylabel}</span>
+                <button class="btn btn-sm btn-outline-danger py-0 px-2 lh-1"
+                        onclick="Plotly.purge('${plotDivId}'); document.getElementById('${id}').remove()"
+                        title="Remove">✕</button>
+            </div>
+            <div class="card-body p-1">
+                <div id="${plotDivId}" class="plotly-chart"></div>
+            </div>
+        </div>`;
+    gallery.prepend(div);
+
+    Plotly.newPlot(plotDivId, spec.traces, spec.layout, PLOTLY_CONFIG);
+}
+
+// ── Multi-axis time comparison ────────────────────────────────────────────────
+function populateMultiAxisTool(clones, availCols) {
+    const cloneSel = document.getElementById("multi-clone");
+    const sels = [
+        document.getElementById("multi-y1"),
+        document.getElementById("multi-y2"),
+        document.getElementById("multi-y3"),
+    ];
+
+    cloneSel.innerHTML = "";
+    for (const clone of clones) {
+        const opt = document.createElement("option");
+        opt.value = clone;
+        opt.textContent = clone;
+        cloneSel.appendChild(opt);
+    }
+
+    for (const sel of sels) sel.innerHTML = "";
+    for (const [label, col] of availCols) {
+        for (const sel of sels) {
+            const opt = document.createElement("option");
+            opt.value = col;
+            opt.textContent = label;
+            sel.appendChild(opt);
+        }
+    }
+
+    const blankOpt = document.createElement("option");
+    blankOpt.value = "";
+    blankOpt.textContent = "None";
+    sels[2].prepend(blankOpt);
+
+    if (sels[0].options.length > 0) sels[0].selectedIndex = 0;
+    if (sels[1].options.length > 1) sels[1].selectedIndex = 1;
+    sels[2].selectedIndex = 0;
+
+    ["multi-y1", "multi-y2", "multi-y3"].forEach(id => {
+        document.getElementById(id)?.addEventListener("change", updateMultiAxisLabels);
+    });
+    updateMultiAxisLabels();
+}
+
+function updateMultiAxisLabels() {
+    const pairs = [
+        ["multi-y1", "multi-y1-label"],
+        ["multi-y2", "multi-y2-label"],
+        ["multi-y3", "multi-y3-label"],
+    ];
+    for (const [selId, labelId] of pairs) {
+        const sel = document.getElementById(selId);
+        const label = document.getElementById(labelId);
+        if (!sel || !label) continue;
+        label.textContent = sel.value
+            ? (sel.options[sel.selectedIndex]?.text || "Axis")
+            : "Unused axis";
+    }
+}
+
+function readAxisRange(prefix) {
+    const minEl = document.getElementById(`${prefix}-min`);
+    const maxEl = document.getElementById(`${prefix}-max`);
+    const min = minEl?.value?.trim() ? parseFloat(minEl.value) : null;
+    const max = maxEl?.value?.trim() ? parseFloat(maxEl.value) : null;
+    return [Number.isFinite(min) ? min : null, Number.isFinite(max) ? max : null];
+}
+
+async function generateMultiAxisPlot() {
+    const btn = document.getElementById("btn-multi-axis");
+    const clone = document.getElementById("multi-clone")?.value;
+    const cols = [
+        document.getElementById("multi-y1")?.value,
+        document.getElementById("multi-y2")?.value,
+        document.getElementById("multi-y3")?.value,
+    ].filter(Boolean);
+
+    const uniqueCols = [...new Set(cols)];
+    if (!clone || uniqueCols.length < 2) {
+        alert("Choose one clone and at least two different variables.");
+        return;
+    }
+
+    const ranges = [
+        readAxisRange("multi-y1"),
+        readAxisRange("multi-y2"),
+        readAxisRange("multi-y3"),
+    ];
+
+    btn.disabled = true;
+    btn.textContent = "Generating…";
+
+    try {
+        pyodide.globals.set("_multi_clone", clone);
+        pyodide.globals.set("_multi_cols_json", JSON.stringify(uniqueCols));
+        pyodide.globals.set("_multi_ranges_json", JSON.stringify(ranges));
+        const pyResult = await pyodide.runPythonAsync(
+            `make_multi_axis_timeseries(_multi_clone, _multi_cols_json, _multi_ranges_json)`
+        );
+        const spec = deepConvert(pyResult);
+        if (spec) {
+            addMultiAxisPlot(clone, uniqueCols, spec);
+        } else {
+            alert("Not enough data for this multi-axis combination.");
+        }
+    } catch (err) {
+        alert("Error: " + err.message);
+        console.error(err);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Generate plot";
+    }
+}
+
+function addMultiAxisPlot(clone, cols, spec) {
+    const gallery = document.getElementById("multi-axis-gallery");
+    const id = `ma-${Date.now()}`;
+    const plotDivId = `plot-${id}`;
+    const title = `${clone} · ${spec.layout?.legend?.title?.text ? "Multi-axis" : "Trend comparison"}`;
+
+    const labels = (spec.traces || []).map(t => t.name).join(" · ");
+    const div = document.createElement("div");
+    div.className = "col-12 mb-4";
+    div.id = id;
+    div.innerHTML = `
+        <div class="card shadow-sm h-100">
+            <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center">
+                <span class="small text-muted fw-semibold">${clone} · ${labels}</span>
                 <button class="btn btn-sm btn-outline-danger py-0 px-2 lh-1"
                         onclick="Plotly.purge('${plotDivId}'); document.getElementById('${id}').remove()"
                         title="Remove">✕</button>

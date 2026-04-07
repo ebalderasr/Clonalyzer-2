@@ -233,6 +233,18 @@
               Correlations
             </button>
           </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab"
+                    data-bs-target="#tab-custom-corr-pane" type="button" role="tab">
+              Custom Correlations
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab"
+                    data-bs-target="#tab-multiaxis-pane" type="button" role="tab">
+              Multi-Axis Trends
+            </button>
+          </li>
         </ul>
 
         <!-- Tab panes -->
@@ -249,37 +261,121 @@
           <div id="tab-corr-pane" class="tab-pane fade" role="tabpanel">
             <div id="tab-correlations" class="row"></div>
           </div>
-        </div>
-      </div>
+          <div id="tab-custom-corr-pane" class="tab-pane fade" role="tabpanel">
+            <div id="custom-corr-section" class="pt-3">
+              <h2 class="md-section-title">Custom Correlations</h2>
+              <p class="md-section-subtitle">
+                Choose any two variables to generate a correlation plot.
+                Color = clone · Marker = phase · Regression line per clone × phase.
+              </p>
+              <div class="d-flex flex-wrap gap-3 align-items-end mb-4">
+                <div>
+                  <label style="display:block;font-size:12px;font-weight:500;color:var(--md-text-secondary);margin-bottom:4px;">
+                    X axis
+                  </label>
+                  <select id="custom-x" class="form-select form-select-sm" style="min-width:220px;"></select>
+                </div>
+                <div>
+                  <label style="display:block;font-size:12px;font-weight:500;color:var(--md-text-secondary);margin-bottom:4px;">
+                    Y axis
+                  </label>
+                  <select id="custom-y" class="form-select form-select-sm" style="min-width:220px;"></select>
+                </div>
+                <button id="btn-custom-corr"
+                        class="btn-md-outlined"
+                        style="align-self:flex-end;"
+                        onclick="generateCustomCorr()">
+                  Generate plot
+                </button>
+              </div>
+              <div id="custom-corr-gallery" class="row"></div>
+            </div>
+          </div>
+          <div id="tab-multiaxis-pane" class="tab-pane fade" role="tabpanel">
+            <div id="multi-axis-section" class="pt-3">
+              <h2 class="md-section-title">Multi-Axis Trend Comparison</h2>
+              <p class="md-section-subtitle">
+                Compare the time evolution of 2 or 3 variables for one clone on shared X and independent Y axes.
+              </p>
 
-      <!-- Custom correlations -->
-      <div id="custom-corr-section" class="md-card">
-        <h2 class="md-section-title">Custom Correlations</h2>
-        <p class="md-section-subtitle">
-          Choose any two variables to generate a correlation plot.
-          Color = clone · Marker = phase · Regression line per clone × phase.
-        </p>
-        <div class="d-flex flex-wrap gap-3 align-items-end mb-4">
-          <div>
-            <label style="display:block;font-size:12px;font-weight:500;color:var(--md-text-secondary);margin-bottom:4px;">
-              X axis
-            </label>
-            <select id="custom-x" class="form-select form-select-sm" style="min-width:220px;"></select>
+              <div class="d-flex flex-wrap gap-3 align-items-end mb-3">
+                <div>
+                  <label style="display:block;font-size:12px;font-weight:500;color:var(--md-text-secondary);margin-bottom:4px;">
+                    Clone
+                  </label>
+                  <select id="multi-clone" class="form-select form-select-sm" style="min-width:180px;"></select>
+                </div>
+                <div>
+                  <label style="display:block;font-size:12px;font-weight:500;color:var(--md-text-secondary);margin-bottom:4px;">
+                    Variable 1
+                  </label>
+                  <select id="multi-y1" class="form-select form-select-sm" style="min-width:220px;"></select>
+                </div>
+                <div>
+                  <label style="display:block;font-size:12px;font-weight:500;color:var(--md-text-secondary);margin-bottom:4px;">
+                    Variable 2
+                  </label>
+                  <select id="multi-y2" class="form-select form-select-sm" style="min-width:220px;"></select>
+                </div>
+                <div>
+                  <label style="display:block;font-size:12px;font-weight:500;color:var(--md-text-secondary);margin-bottom:4px;">
+                    Variable 3
+                  </label>
+                  <select id="multi-y3" class="form-select form-select-sm" style="min-width:220px;"></select>
+                </div>
+              </div>
+
+              <div class="row g-3 mb-4">
+                <div class="col-12 col-lg-4">
+                  <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                      <div id="multi-y1-label" class="small fw-semibold text-muted mb-2">Axis 1</div>
+                      <div class="d-flex gap-2">
+                        <input id="multi-y1-min" type="number" step="any" class="form-control form-control-sm" placeholder="Min" />
+                        <input id="multi-y1-max" type="number" step="any" class="form-control form-control-sm" placeholder="Max" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-4">
+                  <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                      <div id="multi-y2-label" class="small fw-semibold text-muted mb-2">Axis 2</div>
+                      <div class="d-flex gap-2">
+                        <input id="multi-y2-min" type="number" step="any" class="form-control form-control-sm" placeholder="Min" />
+                        <input id="multi-y2-max" type="number" step="any" class="form-control form-control-sm" placeholder="Max" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-4">
+                  <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                      <div id="multi-y3-label" class="small fw-semibold text-muted mb-2">Axis 3</div>
+                      <div class="d-flex gap-2">
+                        <input id="multi-y3-min" type="number" step="any" class="form-control form-control-sm" placeholder="Min" />
+                        <input id="multi-y3-max" type="number" step="any" class="form-control form-control-sm" placeholder="Max" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex flex-wrap gap-3 align-items-end mb-4">
+                <button id="btn-multi-axis"
+                        class="btn-md-outlined"
+                        onclick="generateMultiAxisPlot()">
+                  Generate plot
+                </button>
+                <span class="small text-muted">
+                  Leave the third variable empty if you only want two Y axes. Axis limits are optional.
+                </span>
+              </div>
+
+              <div id="multi-axis-gallery" class="row"></div>
+            </div>
           </div>
-          <div>
-            <label style="display:block;font-size:12px;font-weight:500;color:var(--md-text-secondary);margin-bottom:4px;">
-              Y axis
-            </label>
-            <select id="custom-y" class="form-select form-select-sm" style="min-width:220px;"></select>
-          </div>
-          <button id="btn-custom-corr"
-                  class="btn-md-outlined"
-                  style="align-self:flex-end;"
-                  onclick="generateCustomCorr()">
-            Generate plot
-          </button>
         </div>
-        <div id="custom-corr-gallery" class="row"></div>
       </div>
 
       <!-- Action bar: Download + Analyze another -->

@@ -1042,6 +1042,134 @@ def make_custom_correlation(xcol, ycol):
     )
 
 
+def make_multi_axis_timeseries(clone, cols_json, ranges_json="[]"):
+    """
+    Build a single time-series chart for one clone with 2 or 3 selected variables,
+    each variable mapped to its own Y axis and sharing culture time as X.
+
+    cols_json   : JSON array of 2-3 dataframe column names
+    ranges_json : JSON array of [min,max] pairs; use null for omitted bounds
+    """
+    if not _state:
+        raise RuntimeError("No analysis loaded. Run run_analysis() first.")
+
+    selected = [str(c) for c in json.loads(str(cols_json)) if str(c).strip()]
+    if len(selected) < 2:
+        return None
+    selected = selected[:3]
+
+    label_map = {col: label for label, col in CUSTOM_CORR_COLS}
+    df = _state["df"]
+    sub = df[(df["Clone"] == clone) & (~df[FEED_COL])].copy()
+    if sub.empty:
+        return None
+
+    valid_cols = [c for c in selected if c in sub.columns and not sub[c].isna().all()]
+    if len(valid_cols) < 2:
+        return None
+
+    parsed_ranges = json.loads(str(ranges_json)) if ranges_json else []
+    while len(parsed_ranges) < len(valid_cols):
+        parsed_ranges.append([None, None])
+
+    agg = (
+        sub.groupby("t_hr")[valid_cols]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+
+    variable_colors = ["#0072B2", "#D55E00", "#107F80"]
+    axis_ids = ["y", "y2", "y3"]
+    axis_layout_keys = ["yaxis", "yaxis2", "yaxis3"]
+    traces = []
+
+    for i, col in enumerate(valid_cols):
+        mean_key = (col, "mean")
+        std_key = (col, "std")
+        if mean_key not in agg.columns:
+            continue
+
+        color = variable_colors[i % len(variable_colors)]
+        label = label_map.get(col, col)
+        traces.append({
+            "x": _to_list(agg[("t_hr", "")] if ("t_hr", "") in agg.columns else agg["t_hr"]),
+            "y": _to_list(agg[mean_key]),
+            "error_y": {
+                "type": "data",
+                "array": [_std0(v) for v in agg[std_key].tolist()],
+                "visible": True,
+                "thickness": 1.3,
+                "width": 4,
+            },
+            "name": label,
+            "mode": "lines+markers",
+            "type": "scatter",
+            "line": {"color": color, "width": 2.1},
+            "marker": {"color": color, "size": 6},
+            "connectgaps": True,
+            "yaxis": axis_ids[i],
+            "hovertemplate": (
+                f"<b>{clone}</b><br>"
+                f"t: %{{x}} h<br>"
+                f"{label}: %{{y:.4g}}"
+                "<extra></extra>"
+            ),
+        })
+
+    if len(traces) < 2:
+        return None
+
+    layout = {
+        "plot_bgcolor": "white",
+        "paper_bgcolor": "white",
+        "font": {"size": 12},
+        "height": 420,
+        "margin": {"t": 28, "r": 110 if len(valid_cols) == 3 else 80, "b": 55, "l": 80},
+        "xaxis": {
+            "title": "Culture time (h)",
+            "range": list(X_RANGE),
+            "showgrid": True,
+            "gridcolor": "#e5e5e5",
+            "zeroline": False,
+        },
+        "legend": {"title": {"text": "Variables"}},
+        "hovermode": "x unified",
+    }
+
+    for i, col in enumerate(valid_cols):
+        label = label_map.get(col, col)
+        color = variable_colors[i % len(variable_colors)]
+        axis_cfg = {
+            "title": {"text": label, "font": {"color": color}},
+            "tickfont": {"color": color},
+            "showgrid": i == 0,
+            "gridcolor": "#e5e5e5",
+            "zeroline": False,
+        }
+        lo, hi = parsed_ranges[i] if i < len(parsed_ranges) else [None, None]
+        if lo is not None or hi is not None:
+            axis_cfg["range"] = [lo, hi]
+
+        if i == 0:
+            layout["yaxis"] = axis_cfg
+        elif i == 1:
+            axis_cfg.update({
+                "overlaying": "y",
+                "side": "right",
+            })
+            layout["yaxis2"] = axis_cfg
+        else:
+            axis_cfg.update({
+                "overlaying": "y",
+                "side": "right",
+                "anchor": "free",
+                "position": 0.96,
+            })
+            layout["yaxis3"] = axis_cfg
+
+    return {"traces": traces, "layout": layout}
+
+
 # ── Public entry points ────────────────────────────────────────────────────────
 
 def regenerate_plots(palette_json):
