@@ -19,9 +19,17 @@ PG_PER_G     = 1e12
 MMOL_TO_PMOL = 1e9
 X_RANGE      = (-10, 270)
 
-# Molar masses for pmol conversions (g/mol)
-MW_GLC = 180.16   # glucose
-MW_LAC = 90.08    # lactate / lactic acid
+# Molar masses for mass→molar rate conversions (g/mol).
+# pg/cell/day divided by g/mol yields pmol/cell/day exactly because:
+#   (1e-12 g) / (g/mol) = 1e-12 mol = 1 pmol
+MW_GLC = 180.156  # D-glucose
+MW_LAC = 89.07    # lactate (C3H5O3-); use 90.08 only for lactic acid
+MW_GLN = 146.14   # glutamine
+
+# Carbon stoichiometry (mol C per mol metabolite)
+C_GLC = 6.0
+C_GLN = 5.0
+C_LAC = 3.0
 
 PALETTE = ["#000000","#FF0066","#107F80","#F0E442",
            "#0072B2","#D55E00","#CC79A7","#999999"]
@@ -61,8 +69,12 @@ QGLN_H    = "qGln_pmol_cell_h"
 QGLN_D    = "qGln_pmol_cell_day"
 QGLU_H    = "qGlu_pmol_cell_h"
 QGLU_D    = "qGlu_pmol_cell_day"
+QC_SPEC   = "qC_specific_pmol_C_cell_day"
+C_CUM     = "Cumulative_Carbon_mol"
 Y_LG      = "Y_Lac_per_Glc_g_per_g"
 Y_GQ      = "Y_Glu_per_Gln_mol_per_mol"
+Y_XG      = "Y_cells_per_Glc_mmol"
+Y_XE      = "Y_cells_per_Glu_mmol"
 IVCD_INT  = "IVCD_interval_cells_h_per_mL"   # VCD trapezoid — constant-volume normalizer
 IVCD_CUM  = "IVCD_cum_cells_h_per_mL"
 ITVC_INT  = "ITVC_interval_cells_h"          # TC trapezoid  — variable-volume normalizer
@@ -100,11 +112,15 @@ TS_GROUPS = [
         (QLAC_PMOL,     "qLac (pmol/cell/day)",     "10_qLac",      None),
         (QGLN_D,        "qGln (pmol/cell/day)",     "11_qGln",      None),
         (QGLU_D,        "qGlu (pmol/cell/day)",     "12_qGlu",      None),
+        (QC_SPEC,       "qC (pmol C/cell/day)",     "12b_qC",       None),
         (QP,            "qP (pg/cell/day)",         "13_qP",        None),
         (Y_LG,          "Y Lac/Glc (g/g)",          "14_YLacGlc",   None),
         (Y_GQ,          "Y Glu/Gln (mol/mol)",      "15_YGluGln",   None),
+        (Y_XG,          "Y cells/Glc (cells/mmol)", "15b_YCellsGlc", None),
+        (Y_XE,          "Y cells/Glu (cells/mmol)", "15c_YCellsGlu", None),
         (IVCD_CUM,      "IVCD (cells·h/mL)",        "16_IVCD",      None),
         (ITVC_CUM,      "ITVC (cells·h)",           "16b_ITVC",     None),
+        (C_CUM,         "Cumulative carbon consumed (mol C)", "16c_CumulativeCarbon", None),
     ]),
     ("Fluorescence – Intensity", [
         ("GFP_mean",    "GFP intensity (A.U.)",     "17_GFP",       None),
@@ -130,8 +146,11 @@ BAR_GROUPS = [
         ("qP_exp",         "qP exp (pg/cell/day)",     "13_qP_Exp"),
         ("qGln_exp",       "qGln exp (pmol/cell/day)", "11_qGln_Exp"),
         ("qGlu_exp",       "qGlu exp (pmol/cell/day)", "12_qGlu_Exp"),
+        ("qC_exp",         "qC exp (pmol C/cell/day)", "12b_qC_Exp"),
         ("Y_Lac_Glc_exp",  "Y Lac/Glc exp (g/g)",      "14_YLacGlc_Exp"),
         ("Y_Glu_Gln_exp",  "Y Glu/Gln exp (mol/mol)",  "15_YGluGln_Exp"),
+        ("Y_cells_Glc_exp","Y cells/Glc exp (cells/mmol)", "15b_YCellsGlc_Exp"),
+        ("Y_cells_Glu_exp","Y cells/Glu exp (cells/mmol)", "15c_YCellsGlu_Exp"),
     ]),
     ("Fluorescence – Rate of Change", [
         ("dGFP_dt_exp",    "dGFP/dt exp (A.U./h)",     "19_dGFP_dt_Exp"),
@@ -191,11 +210,15 @@ CUSTOM_CORR_COLS = [
     ("qLac (pmol/cell/day)",     QLAC_PMOL),
     ("qGln (pmol/cell/day)",     QGLN_D),
     ("qGlu (pmol/cell/day)",     QGLU_D),
+    ("qC (pmol C/cell/day)",     QC_SPEC),
     ("qP (pg/cell/day)",         QP),
     ("Y Lac/Glc (g/g)",          Y_LG),
     ("Y Glu/Gln (mol/mol)",      Y_GQ),
+    ("Y cells/Glc (cells/mmol)", Y_XG),
+    ("Y cells/Glu (cells/mmol)", Y_XE),
     ("IVCD (cells·h/mL)",        IVCD_CUM),
     ("ITVC (cells·h)",           ITVC_CUM),
+    ("Cumulative carbon consumed (mol C)", C_CUM),
     ("GFP intensity (A.U.)",     "GFP_mean"),
     ("TMRM intensity (A.U.)",    "TMRM_mean"),
     ("dGFP/dt (A.U./h)",         DGFP),
@@ -262,10 +285,9 @@ def _load(csv_text: str, skip_first_row: bool = True) -> pd.DataFrame:
     if FEED_COL not in df.columns:
         df[FEED_COL] = False
     elif df[FEED_COL].dtype == object:
+        true_values = {"true", "1", "si", "sí", "yes"}
         df[FEED_COL] = (
-            df[FEED_COL].str.strip().str.upper()
-            .map({"TRUE": True, "FALSE": False, "1": True, "0": False})
-            .fillna(False)
+            df[FEED_COL].astype(str).str.lower().str.strip().isin(true_values)
         )
     df[FEED_COL] = df[FEED_COL].astype(bool)
 
@@ -325,7 +347,7 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
 
     out_cols = [MU, QGLC, QLAC, QGLC_PMOL, QLAC_PMOL, QP,
                 QGLN_H, QGLN_D, QGLU_H, QGLU_D,
-                Y_LG, Y_GQ, IVCD_INT, IVCD_CUM]
+                Y_LG, Y_GQ, Y_XG, Y_XE, IVCD_INT, IVCD_CUM]
     if has_vol:
         out_cols += [ITVC_INT, ITVC_CUM]
     out_cols += [rc for _, rc, _ in _active_fluor(df, fluor_set)]
@@ -352,7 +374,7 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
             # ── μ: ALWAYS VCD-based  (PDF §2.1 / §3.4) ───────────────────────
             # Using TC for μ produces spurious negative values whenever volume
             # drops (e.g. sampling removes medium), confusing dilution with death.
-            if v1 > 0 and v2 > 0:
+            if pd.notna(v1) and pd.notna(v2) and v1 > 0 and v2 > 0:
                 df.at[ic, MU] = np.log(v2 / v1) / dt
 
             if has_vol:
@@ -365,6 +387,8 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
                 #   q_i   = ΔM_i / ΔITVC
                 # ══════════════════════════════════════════════════════════════
                 vol1, vol2 = rp[VOL_COL], rc[VOL_COL]
+                if any(pd.isna(x) for x in [v1, v2, vol1, vol2]):
+                    continue
 
                 # TC = VCD [cells/mL] × V [mL]  →  [cells]
                 TC1 = v1 * vol1
@@ -405,6 +429,9 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
                 lac_produced = M_Lac2 - M_Lac1
                 gln_consumed = M_Gln1 - M_Gln2
                 glu_produced = M_Glu2 - M_Glu1
+                delta_cells = TC2 - TC1                    # [cells]
+                glc_consumed_mmol = glc_consumed / MW_GLC * 1000.0
+                glu_produced_mmol = glu_produced           # [mmol]
 
                 # ITVC cumulative integral  (PDF eq. 3.3)
                 itvc_cum += delta_ITVC
@@ -422,6 +449,9 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
                 # ══════════════════════════════════════════════════════════════
 
                 # ΔIVCD = (VCD_1 + VCD_2) / 2 × Δt  [cells/mL · h]  (PDF eq. 2.2)
+                if pd.isna(v1) or pd.isna(v2):
+                    continue
+
                 delta_IVCD = 0.5 * (v1 + v2) * dt
                 if delta_IVCD <= 0:
                     continue
@@ -451,6 +481,9 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
                 lac_produced = dLac
                 gln_consumed = dGln
                 glu_produced = dGlu
+                delta_cells = (v2 - v1) * 1000.0          # [cells/L]
+                glc_consumed_mmol = dGlc / MW_GLC * 1000.0
+                glu_produced_mmol = dGlu                  # [mmol/L]
 
             # ── Write rates to DataFrame (both scenarios) ─────────────────────
             df.at[ic, QGLC]      = qglc_pg
@@ -468,6 +501,10 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
                 df.at[ic, Y_LG] = lac_produced / glc_consumed
             if gln_consumed > 0:
                 df.at[ic, Y_GQ] = glu_produced / gln_consumed
+            if glc_consumed_mmol > 0:
+                df.at[ic, Y_XG] = delta_cells / glc_consumed_mmol
+            if glu_produced_mmol > 0:
+                df.at[ic, Y_XE] = delta_cells / glu_produced_mmol
 
             # ── IVCD: always computed  (PDF §2.2) ─────────────────────────────
             # IVCD_2 = IVCD_1 + (VCD_1 + VCD_2)/2 × Δt
@@ -492,8 +529,9 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
 def _summarise(df: pd.DataFrame, fluor_set=None) -> pd.DataFrame:
     exp = df[df[PHASE] == PHASE_EXP]
     rate_map = [(QGLC_PMOL,"qGlc_pmol_exp"),(QLAC_PMOL,"qLac_pmol_exp"),(QP,"qP_exp"),
-                (QGLN_D,"qGln_exp"),(QGLU_D,"qGlu_exp"),
-                (Y_LG,"Y_Lac_Glc_exp"),(Y_GQ,"Y_Glu_Gln_exp")]
+                (QGLN_D,"qGln_exp"),(QGLU_D,"qGlu_exp"),(QC_SPEC,"qC_exp"),
+                (Y_LG,"Y_Lac_Glc_exp"),(Y_GQ,"Y_Glu_Gln_exp"),
+                (Y_XG,"Y_cells_Glc_exp"),(Y_XE,"Y_cells_Glu_exp")]
     rate_map += [(rc, f"d{lbl}_dt_exp") for _, rc, lbl in _active_fluor(df, fluor_set)]
 
     records = []
@@ -511,6 +549,75 @@ def _summarise(df: pd.DataFrame, fluor_set=None) -> pd.DataFrame:
                 row[key] = grp[col].mean(skipna=True)
         records.append(row)
     return pd.DataFrame(records)
+
+
+def _add_carbon_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add carbon-centric metrics inspired by the user's notebook workflow:
+    - qC_specific_pmol_C_cell_day
+    - Cumulative_Carbon_mol
+
+    qC uses already computed specific rates and counts only lactate uptake
+    (negative qLac) as carbon consumed.
+
+    Cumulative carbon is only computed when reactor volume is available,
+    because it relies on interval mass balances in the reactor.
+    """
+    df = df.copy()
+
+    df[QC_SPEC] = (
+        C_GLC * df[QGLC_PMOL] +
+        C_GLN * df[QGLN_D] +
+        C_LAC * (-df[QLAC_PMOL]).clip(lower=0)
+    )
+
+    df[C_CUM] = np.nan
+    if VOL_COL not in df.columns:
+        return df
+
+    for (_, _rep), grp in df.groupby(["Clone", "Rep"], sort=False):
+        idx = grp.index.tolist()
+        cum_c_mol = 0.0
+
+        for k, ic in enumerate(idx):
+            if k == 0:
+                df.at[ic, C_CUM] = cum_c_mol
+                continue
+
+            ip = idx[k - 1]
+            rp, rc = df.loc[ip], df.loc[ic]
+
+            # Mirror the notebook logic: ignore the dilution-only pre-feed → post-feed jump.
+            if (not rp[FEED_COL]) and rc[FEED_COL]:
+                df.at[ic, C_CUM] = cum_c_mol
+                continue
+
+            dt = rc["t_hr"] - rp["t_hr"]
+            if pd.isna(dt) or dt <= 0:
+                df.at[ic, C_CUM] = cum_c_mol
+                continue
+
+            vals = [
+                rp[VOL_COL], rc[VOL_COL],
+                rp["Glc_g_L"], rc["Glc_g_L"],
+                rp["Gln_mM"], rc["Gln_mM"],
+                rp["Lac_g_L"], rc["Lac_g_L"],
+            ]
+            if any(pd.isna(v) for v in vals):
+                df.at[ic, C_CUM] = cum_c_mol
+                continue
+
+            v1_l = rp[VOL_COL] / 1000.0
+            v2_l = rc[VOL_COL] / 1000.0
+
+            d_glc_mol = max(0.0, (rp["Glc_g_L"] * v1_l - rc["Glc_g_L"] * v2_l) / MW_GLC)
+            d_gln_mol = max(0.0, (rp["Gln_mM"] * v1_l - rc["Gln_mM"] * v2_l) / 1000.0)
+            d_lac_mol = max(0.0, (rp["Lac_g_L"] * v1_l - rc["Lac_g_L"] * v2_l) / MW_LAC)
+
+            cum_c_mol += C_GLC * d_glc_mol + C_GLN * d_gln_mol + C_LAC * d_lac_mol
+            df.at[ic, C_CUM] = cum_c_mol
+
+    return df
 
 
 # ── Plotly chart data builders ──────────────────────────────────────────────────
@@ -924,6 +1031,7 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
     cb("Computing kinetics…", 20)
     df_kin  = _compute(df, float(exp_phase_start), float(exp_phase_end),
                        use_volume=bool(use_volume), fluor_set=fluor_set)
+    df_kin  = _add_carbon_metrics(df_kin)
     summary = _summarise(df_kin, fluor_set=fluor_set)
 
     clones = df_kin["Clone"].unique().tolist()

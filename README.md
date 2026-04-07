@@ -118,11 +118,11 @@ $$q_i = \frac{\Delta C_i}{\Delta IVCD} \quad \text{[pg or pmol / cell / day]}$$
 
 | Parameter | Numerator | Sign convention |
 |---|---|---|
-| qGlc | $Glc_1 - Glc_2$ | + consumed |
-| qLac | $Lac_2 - Lac_1$ | + produced |
+| qGlc | $Glc_1 - Glc_2$ | + consumed, reported as pmol/cell/day |
+| qLac | $Lac_2 - Lac_1$ | + produced, reported as pmol/cell/day |
 | qP | $rP_2 - rP_1$ | + produced |
-| qGln | $Gln_1 - Gln_2$ | + consumed |
-| qGlu | $Glu_2 - Glu_1$ | + produced |
+| qGln | $Gln_1 - Gln_2$ | + consumed, reported as pmol/cell/day |
+| qGlu | $Glu_2 - Glu_1$ | + produced, reported as pmol/cell/day |
 
 Metabolic yields are the ratio of concentration changes:
 
@@ -152,11 +152,11 @@ $$q_i = \frac{\Delta M_i}{\Delta ITVC} \quad \text{[pg or pmol / cell / day]}$$
 
 | Parameter | Numerator | Sign convention |
 |---|---|---|
-| qGlc | $M_{Glc,1} - M_{Glc,2}$ | + consumed |
-| qLac | $M_{Lac,2} - M_{Lac,1}$ | + produced |
+| qGlc | $M_{Glc,1} - M_{Glc,2}$ | + consumed, reported as pmol/cell/day |
+| qLac | $M_{Lac,2} - M_{Lac,1}$ | + produced, reported as pmol/cell/day |
 | qP | $M_{rP,2} - M_{rP,1}$ | + produced |
-| qGln | $M_{Gln,1} - M_{Gln,2}$ | + consumed |
-| qGlu | $M_{Glu,2} - M_{Glu,1}$ | + produced |
+| qGln | $M_{Gln,1} - M_{Gln,2}$ | + consumed, reported as pmol/cell/day |
+| qGlu | $M_{Glu,2} - M_{Glu,1}$ | + produced, reported as pmol/cell/day |
 
 Metabolic yields are the ratio of mass changes:
 
