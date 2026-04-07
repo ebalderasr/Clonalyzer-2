@@ -71,6 +71,7 @@ QGLU_H    = "qGlu_pmol_cell_h"
 QGLU_D    = "qGlu_pmol_cell_day"
 QC_SPEC   = "qC_specific_pmol_C_cell_day"
 C_CUM     = "Cumulative_Carbon_mol"
+C_TOTAL   = "Total_Carbon_mol"
 Y_LG      = "Y_Lac_per_Glc_g_per_g"
 Y_GQ      = "Y_Glu_per_Gln_mol_per_mol"
 Y_XG      = "Y_cells_per_Glc_mmol"
@@ -121,6 +122,7 @@ TS_GROUPS = [
         (IVCD_CUM,      "IVCD (cells·h/mL)",        "16_IVCD",      None),
         (ITVC_CUM,      "ITVC (cells·h)",           "16b_ITVC",     None),
         (C_CUM,         "Cumulative carbon consumed (mol C)", "16c_CumulativeCarbon", None),
+        (C_TOTAL,       "Total carbon in reactor (mol C)", "16d_TotalCarbon", None),
     ]),
     ("Fluorescence – Intensity", [
         ("GFP_mean",    "GFP intensity (A.U.)",     "17_GFP",       None),
@@ -170,24 +172,57 @@ FLUOR_COL_TO_LABEL = {
 }
 
 CORR_SPECS = [
-    # GFP / TMRM
-    (QP,           "GFP_mean",   "qP (pg/cell/day)",      "GFP (A.U.)",           "40_qP_vs_GFP"),
-    (QP,           "TMRM_mean",  "qP (pg/cell/day)",      "TMRM (A.U.)",          "41_qP_vs_TMRM"),
-    ("GFP_mean",   "TMRM_mean",  "GFP (A.U.)",            "TMRM (A.U.)",          "42_GFP_vs_TMRM"),
-    (QGLC_PMOL,    "TMRM_mean",  "qGlc (pmol/cell/day)",  "TMRM (A.U.)",          "50_qGlc_vs_TMRM"),
-    (QP,           QGLC_PMOL,    "qP (pg/cell/day)",      "qGlc (pmol/cell/day)", "52_qP_vs_qGlc"),
-    (QLAC_PMOL,    QGLC_PMOL,    "qLac (pmol/cell/day)",  "qGlc (pmol/cell/day)", "55_qLac_vs_qGlc"),
-    (QP,           DGFP,         "qP (pg/cell/day)",      "dGFP/dt (A.U./h)",     "60_qP_vs_dGFPdt"),
-    # BODIPY
-    (QP,           "Bodipy_mean","qP (pg/cell/day)",      "BODIPY (A.U.)",        "61_qP_vs_Bodipy"),
-    (QGLC_PMOL,    "Bodipy_mean","qGlc (pmol/cell/day)",  "BODIPY (A.U.)",        "62_qGlc_vs_Bodipy"),
-    ("GFP_mean",   "Bodipy_mean","GFP (A.U.)",            "BODIPY (A.U.)",        "63_GFP_vs_Bodipy"),
-    (QP,           DBODIPY,      "qP (pg/cell/day)",      "dBODIPY/dt (A.U./h)",  "64_qP_vs_dBodipydt"),
-    # CellROX
-    (QP,           "CellROX_mean","qP (pg/cell/day)",     "CellROX (A.U.)",       "65_qP_vs_CellRox"),
-    (QGLC_PMOL,    "CellROX_mean","qGlc (pmol/cell/day)", "CellROX (A.U.)",       "66_qGlc_vs_CellRox"),
-    ("Bodipy_mean","CellROX_mean","BODIPY (A.U.)",        "CellROX (A.U.)",       "67_Bodipy_vs_CellRox"),
-    (QP,           DCELLROX,     "qP (pg/cell/day)",      "dCellROX/dt (A.U./h)", "68_qP_vs_dCellRoxdt"),
+    # Core metabolic / growth relationships
+    (QGLC_PMOL, QLAC_PMOL, "qGlc (pmol/cell/day)", "qLac (pmol/cell/day)", "40_qGlc_vs_qLac"),
+    (QGLN_D, QGLU_D, "qGln (pmol/cell/day)", "qGlu (pmol/cell/day)", "41_qGln_vs_qGlu"),
+    (QGLC_PMOL, QGLN_D, "qGlc (pmol/cell/day)", "qGln (pmol/cell/day)", "42_qGlc_vs_qGln"),
+    (MU, QGLC_PMOL, "μ (1/h)", "qGlc (pmol/cell/day)", "43_mu_vs_qGlc"),
+    (MU, QGLN_D, "μ (1/h)", "qGln (pmol/cell/day)", "44_mu_vs_qGln"),
+    (MU, Y_LG, "μ (1/h)", "Y Lac/Glc (g/g)", "45_mu_vs_YLacGlc"),
+    (MU, Y_GQ, "μ (1/h)", "Y Glu/Gln (mol/mol)", "46_mu_vs_YGluGln"),
+    (Y_LG, Y_GQ, "Y Lac/Glc (g/g)", "Y Glu/Gln (mol/mol)", "47_YLacGlc_vs_YGluGln"),
+    (QP, QGLC_PMOL, "qP (pg/cell/day)", "qGlc (pmol/cell/day)", "48_qP_vs_qGlc"),
+    (QP, QGLN_D, "qP (pg/cell/day)", "qGln (pmol/cell/day)", "49_qP_vs_qGln"),
+
+    # Cytometry vs qP
+    (QP, "GFP_mean", "qP (pg/cell/day)", "GFP (A.U.)", "60_qP_vs_GFP"),
+    (QP, "TMRM_mean", "qP (pg/cell/day)", "TMRM (A.U.)", "61_qP_vs_TMRM"),
+    (QP, "Bodipy_mean", "qP (pg/cell/day)", "BODIPY (A.U.)", "62_qP_vs_Bodipy"),
+    (QP, "CellROX_mean", "qP (pg/cell/day)", "CellROX (A.U.)", "63_qP_vs_CellRox"),
+
+    # Cytometry cross-correlations
+    ("GFP_mean", "TMRM_mean", "GFP (A.U.)", "TMRM (A.U.)", "70_GFP_vs_TMRM"),
+    ("GFP_mean", "Bodipy_mean", "GFP (A.U.)", "BODIPY (A.U.)", "71_GFP_vs_Bodipy"),
+    ("GFP_mean", "CellROX_mean", "GFP (A.U.)", "CellROX (A.U.)", "72_GFP_vs_CellRox"),
+    ("TMRM_mean", "Bodipy_mean", "TMRM (A.U.)", "BODIPY (A.U.)", "73_TMRM_vs_Bodipy"),
+    ("TMRM_mean", "CellROX_mean", "TMRM (A.U.)", "CellROX (A.U.)", "74_TMRM_vs_CellRox"),
+    ("Bodipy_mean", "CellROX_mean", "BODIPY (A.U.)", "CellROX (A.U.)", "75_Bodipy_vs_CellRox"),
+
+    # Metabolites / titer vs cytometry
+    ("Glc_g_L", "TMRM_mean", "Glucose (g/L)", "TMRM (A.U.)", "80_Glc_vs_TMRM"),
+    ("Glc_g_L", "GFP_mean", "Glucose (g/L)", "GFP (A.U.)", "81_Glc_vs_GFP"),
+    ("Glc_g_L", "Bodipy_mean", "Glucose (g/L)", "BODIPY (A.U.)", "82_Glc_vs_Bodipy"),
+    ("Glc_g_L", "CellROX_mean", "Glucose (g/L)", "CellROX (A.U.)", "83_Glc_vs_CellRox"),
+
+    ("Lac_g_L", "TMRM_mean", "Lactate (g/L)", "TMRM (A.U.)", "84_Lac_vs_TMRM"),
+    ("Lac_g_L", "GFP_mean", "Lactate (g/L)", "GFP (A.U.)", "85_Lac_vs_GFP"),
+    ("Lac_g_L", "Bodipy_mean", "Lactate (g/L)", "BODIPY (A.U.)", "86_Lac_vs_Bodipy"),
+    ("Lac_g_L", "CellROX_mean", "Lactate (g/L)", "CellROX (A.U.)", "87_Lac_vs_CellRox"),
+
+    ("Gln_mM", "TMRM_mean", "Glutamine (mM)", "TMRM (A.U.)", "88_Gln_vs_TMRM"),
+    ("Gln_mM", "GFP_mean", "Glutamine (mM)", "GFP (A.U.)", "89_Gln_vs_GFP"),
+    ("Gln_mM", "Bodipy_mean", "Glutamine (mM)", "BODIPY (A.U.)", "90_Gln_vs_Bodipy"),
+    ("Gln_mM", "CellROX_mean", "Glutamine (mM)", "CellROX (A.U.)", "91_Gln_vs_CellRox"),
+
+    ("Glu_mM", "TMRM_mean", "Glutamate (mM)", "TMRM (A.U.)", "92_Glu_vs_TMRM"),
+    ("Glu_mM", "GFP_mean", "Glutamate (mM)", "GFP (A.U.)", "93_Glu_vs_GFP"),
+    ("Glu_mM", "Bodipy_mean", "Glutamate (mM)", "BODIPY (A.U.)", "94_Glu_vs_Bodipy"),
+    ("Glu_mM", "CellROX_mean", "Glutamate (mM)", "CellROX (A.U.)", "95_Glu_vs_CellRox"),
+
+    ("rP_mg_L", "TMRM_mean", "rP Titer (mg/L)", "TMRM (A.U.)", "96_rP_vs_TMRM"),
+    ("rP_mg_L", "GFP_mean", "rP Titer (mg/L)", "GFP (A.U.)", "97_rP_vs_GFP"),
+    ("rP_mg_L", "Bodipy_mean", "rP Titer (mg/L)", "BODIPY (A.U.)", "98_rP_vs_Bodipy"),
+    ("rP_mg_L", "CellROX_mean", "rP Titer (mg/L)", "CellROX (A.U.)", "99_rP_vs_CellRox"),
 ]
 
 # phase → (Plotly marker symbol, Plotly line dash, short label)
@@ -219,6 +254,7 @@ CUSTOM_CORR_COLS = [
     ("IVCD (cells·h/mL)",        IVCD_CUM),
     ("ITVC (cells·h)",           ITVC_CUM),
     ("Cumulative carbon consumed (mol C)", C_CUM),
+    ("Total carbon in reactor (mol C)", C_TOTAL),
     ("GFP intensity (A.U.)",     "GFP_mean"),
     ("TMRM intensity (A.U.)",    "TMRM_mean"),
     ("dGFP/dt (A.U./h)",         DGFP),
@@ -565,15 +601,52 @@ def _add_carbon_metrics(df: pd.DataFrame) -> pd.DataFrame:
     """
     df = df.copy()
 
-    df[QC_SPEC] = (
-        C_GLC * df[QGLC_PMOL] +
-        C_GLN * df[QGLN_D] +
-        C_LAC * (-df[QLAC_PMOL]).clip(lower=0)
-    )
+    available_q_sources = []
+    q_components = []
+
+    if QGLC_PMOL in df.columns and df[QGLC_PMOL].notna().any():
+        available_q_sources.append(QGLC_PMOL)
+        q_components.append(C_GLC * df[QGLC_PMOL].fillna(0.0))
+    if QGLN_D in df.columns and df[QGLN_D].notna().any():
+        available_q_sources.append(QGLN_D)
+        q_components.append(C_GLN * df[QGLN_D].fillna(0.0))
+    if QLAC_PMOL in df.columns and df[QLAC_PMOL].notna().any():
+        available_q_sources.append(QLAC_PMOL)
+        q_components.append(C_LAC * (-df[QLAC_PMOL]).clip(lower=0).fillna(0.0))
+
+    if q_components:
+        q_sum = q_components[0]
+        for comp in q_components[1:]:
+            q_sum = q_sum + comp
+        all_q_missing = df[available_q_sources].isna().all(axis=1)
+        df[QC_SPEC] = q_sum.mask(all_q_missing, np.nan)
+    else:
+        df[QC_SPEC] = np.nan
 
     df[C_CUM] = np.nan
+    df[C_TOTAL] = np.nan
     if VOL_COL not in df.columns:
         return df
+
+    total_components = []
+    total_avail = []
+    if df["Glc_g_L"].notna().any():
+        total_avail.append("Glc_g_L")
+        total_components.append(C_GLC * (df["Glc_g_L"] * df[VOL_COL] / 1000.0) / MW_GLC)
+    if "Gln_mM" in df.columns and df["Gln_mM"].notna().any():
+        total_avail.append("Gln_mM")
+        total_components.append(C_GLN * (df["Gln_mM"] * df[VOL_COL] / 1000.0) / 1000.0)
+    if df["Lac_g_L"].notna().any():
+        total_avail.append("Lac_g_L")
+        total_components.append(C_LAC * (df["Lac_g_L"] * df[VOL_COL] / 1000.0) / MW_LAC)
+
+    if total_components:
+        total_sum = total_components[0]
+        for comp in total_components[1:]:
+            total_sum = total_sum + comp
+        all_sources_missing = df[total_avail].isna().all(axis=1)
+        missing_volume = df[VOL_COL].isna()
+        df[C_TOTAL] = total_sum.mask(all_sources_missing | missing_volume, np.nan)
 
     for (_, _rep), grp in df.groupby(["Clone", "Rep"], sort=False):
         idx = grp.index.tolist()
@@ -597,24 +670,36 @@ def _add_carbon_metrics(df: pd.DataFrame) -> pd.DataFrame:
                 df.at[ic, C_CUM] = cum_c_mol
                 continue
 
-            vals = [
-                rp[VOL_COL], rc[VOL_COL],
-                rp["Glc_g_L"], rc["Glc_g_L"],
-                rp["Gln_mM"], rc["Gln_mM"],
-                rp["Lac_g_L"], rc["Lac_g_L"],
-            ]
-            if any(pd.isna(v) for v in vals):
+            if pd.isna(rp[VOL_COL]) or pd.isna(rc[VOL_COL]):
                 df.at[ic, C_CUM] = cum_c_mol
                 continue
 
             v1_l = rp[VOL_COL] / 1000.0
             v2_l = rc[VOL_COL] / 1000.0
 
-            d_glc_mol = max(0.0, (rp["Glc_g_L"] * v1_l - rc["Glc_g_L"] * v2_l) / MW_GLC)
-            d_gln_mol = max(0.0, (rp["Gln_mM"] * v1_l - rc["Gln_mM"] * v2_l) / 1000.0)
-            d_lac_mol = max(0.0, (rp["Lac_g_L"] * v1_l - rc["Lac_g_L"] * v2_l) / MW_LAC)
+            delta_c = 0.0
+            used_any_source = False
 
-            cum_c_mol += C_GLC * d_glc_mol + C_GLN * d_gln_mol + C_LAC * d_lac_mol
+            if pd.notna(rp["Glc_g_L"]) and pd.notna(rc["Glc_g_L"]):
+                d_glc_mol = max(0.0, (rp["Glc_g_L"] * v1_l - rc["Glc_g_L"] * v2_l) / MW_GLC)
+                delta_c += C_GLC * d_glc_mol
+                used_any_source = True
+
+            if "Gln_mM" in df.columns and pd.notna(rp["Gln_mM"]) and pd.notna(rc["Gln_mM"]):
+                d_gln_mol = max(0.0, (rp["Gln_mM"] * v1_l - rc["Gln_mM"] * v2_l) / 1000.0)
+                delta_c += C_GLN * d_gln_mol
+                used_any_source = True
+
+            if pd.notna(rp["Lac_g_L"]) and pd.notna(rc["Lac_g_L"]):
+                d_lac_mol = max(0.0, (rp["Lac_g_L"] * v1_l - rc["Lac_g_L"] * v2_l) / MW_LAC)
+                delta_c += C_LAC * d_lac_mol
+                used_any_source = True
+
+            if not used_any_source:
+                df.at[ic, C_CUM] = cum_c_mol
+                continue
+
+            cum_c_mol += delta_c
             df.at[ic, C_CUM] = cum_c_mol
 
     return df
