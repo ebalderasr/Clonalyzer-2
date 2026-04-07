@@ -1044,8 +1044,9 @@ def make_custom_correlation(xcol, ycol):
 
 def make_multi_axis_timeseries(clone, cols_json, ranges_json="[]"):
     """
-    Build a single time-series chart for one clone with 2 or 3 selected variables,
-    each variable mapped to its own Y axis and sharing culture time as X.
+    Build a time-series chart for one clone or all clones with 2 or 3 selected
+    variables, each variable mapped to its own Y axis and sharing culture time
+    as X.
 
     cols_json   : JSON array of 2-3 dataframe column names
     ranges_json : JSON array of [min,max] pairs; use null for omitted bounds
@@ -1060,7 +1061,8 @@ def make_multi_axis_timeseries(clone, cols_json, ranges_json="[]"):
 
     label_map = {col: label for label, col in CUSTOM_CORR_COLS}
     df = _state["df"]
-    sub = df[(df["Clone"] == clone) & (~df[FEED_COL])].copy()
+    target_clones = _state["clones"] if clone == "__all__" else [clone]
+    sub = df[(df["Clone"].isin(target_clones)) & (~df[FEED_COL])].copy()
     if sub.empty:
         return None
 
@@ -1072,67 +1074,100 @@ def make_multi_axis_timeseries(clone, cols_json, ranges_json="[]"):
     while len(parsed_ranges) < len(valid_cols):
         parsed_ranges.append([None, None])
 
-    agg = (
-        sub.groupby("t_hr")[valid_cols]
-        .agg(["mean", "std"])
-        .reset_index()
-    )
-
     variable_colors = ["#0072B2", "#D55E00", "#107F80"]
     axis_ids = ["y", "y2", "y3"]
-    axis_layout_keys = ["yaxis", "yaxis2", "yaxis3"]
+    dash_styles = ["solid", "dash", "dot", "dashdot"]
+    marker_symbols = ["circle", "square", "diamond", "triangle-up", "x"]
     traces = []
 
-    for i, col in enumerate(valid_cols):
-        mean_key = (col, "mean")
-        std_key = (col, "std")
-        if mean_key not in agg.columns:
+    for clone_i, clone_name in enumerate(target_clones):
+        clone_sub = sub[sub["Clone"] == clone_name]
+        if clone_sub.empty:
             continue
+        agg = (
+            clone_sub.groupby("t_hr")[valid_cols]
+            .agg(["mean", "std"])
+            .reset_index()
+        )
 
-        color = variable_colors[i % len(variable_colors)]
-        label = label_map.get(col, col)
-        traces.append({
-            "x": _to_list(agg[("t_hr", "")] if ("t_hr", "") in agg.columns else agg["t_hr"]),
-            "y": _to_list(agg[mean_key]),
-            "error_y": {
-                "type": "data",
-                "array": [_std0(v) for v in agg[std_key].tolist()],
-                "visible": True,
-                "thickness": 1.3,
-                "width": 4,
-            },
-            "name": label,
-            "mode": "lines+markers",
-            "type": "scatter",
-            "line": {"color": color, "width": 2.1},
-            "marker": {"color": color, "size": 6},
-            "connectgaps": True,
-            "yaxis": axis_ids[i],
-            "hovertemplate": (
-                f"<b>{clone}</b><br>"
-                f"t: %{{x}} h<br>"
-                f"{label}: %{{y:.4g}}"
-                "<extra></extra>"
-            ),
-        })
+        for i, col in enumerate(valid_cols):
+            mean_key = (col, "mean")
+            std_key = (col, "std")
+            if mean_key not in agg.columns:
+                continue
+
+            color = variable_colors[i % len(variable_colors)]
+            label = label_map.get(col, col)
+            name = label if len(target_clones) == 1 else f"{clone_name} · {label}"
+            traces.append({
+                "x": _to_list(agg[("t_hr", "")] if ("t_hr", "") in agg.columns else agg["t_hr"]),
+                "y": _to_list(agg[mean_key]),
+                "error_y": {
+                    "type": "data",
+                    "array": [_std0(v) for v in agg[std_key].tolist()],
+                    "visible": True,
+                    "thickness": 1.2,
+                    "width": 4,
+                },
+                "name": name,
+                "mode": "lines+markers",
+                "type": "scatter",
+                "line": {
+                    "color": color,
+                    "width": 2.1,
+                    "dash": dash_styles[clone_i % len(dash_styles)],
+                },
+                "marker": {
+                    "color": color,
+                    "size": 6,
+                    "symbol": marker_symbols[clone_i % len(marker_symbols)],
+                },
+                "connectgaps": True,
+                "yaxis": axis_ids[i],
+                "hovertemplate": (
+                    f"<b>{clone_name}</b><br>"
+                    f"t: %{{x}} h<br>"
+                    f"{label}: %{{y:.4g}}"
+                    "<extra></extra>"
+                ),
+            })
 
     if len(traces) < 2:
         return None
+
+    n_axes = len(valid_cols)
+    if n_axes == 2:
+        x_domain = [0.0, 0.82]
+        right_positions = [0.88]
+        right_margin = 120
+    else:
+        x_domain = [0.0, 0.72]
+        right_positions = [0.82, 0.92]
+        right_margin = 170
 
     layout = {
         "plot_bgcolor": "white",
         "paper_bgcolor": "white",
         "font": {"size": 12},
-        "height": 420,
-        "margin": {"t": 28, "r": 110 if len(valid_cols) == 3 else 80, "b": 55, "l": 80},
+        "height": 460,
+        "margin": {"t": 28, "r": right_margin, "b": 115, "l": 90},
         "xaxis": {
             "title": "Culture time (h)",
             "range": list(X_RANGE),
+            "domain": x_domain,
             "showgrid": True,
             "gridcolor": "#e5e5e5",
             "zeroline": False,
         },
-        "legend": {"title": {"text": "Variables"}},
+        "legend": {
+            "title": {"text": "Series"},
+            "orientation": "h",
+            "x": 0.0,
+            "y": -0.24,
+            "xanchor": "left",
+            "yanchor": "top",
+            "font": {"size": 10},
+        },
         "hovermode": "x unified",
     }
 
@@ -1142,6 +1177,9 @@ def make_multi_axis_timeseries(clone, cols_json, ranges_json="[]"):
         axis_cfg = {
             "title": {"text": label, "font": {"color": color}},
             "tickfont": {"color": color},
+            "titlefont": {"color": color},
+            "title_standoff": 8,
+            "automargin": True,
             "showgrid": i == 0,
             "gridcolor": "#e5e5e5",
             "zeroline": False,
@@ -1156,6 +1194,8 @@ def make_multi_axis_timeseries(clone, cols_json, ranges_json="[]"):
             axis_cfg.update({
                 "overlaying": "y",
                 "side": "right",
+                "anchor": "free",
+                "position": right_positions[0],
             })
             layout["yaxis2"] = axis_cfg
         else:
@@ -1163,7 +1203,7 @@ def make_multi_axis_timeseries(clone, cols_json, ranges_json="[]"):
                 "overlaying": "y",
                 "side": "right",
                 "anchor": "free",
-                "position": 0.96,
+                "position": right_positions[1],
             })
             layout["yaxis3"] = axis_cfg
 

@@ -523,6 +523,12 @@ function populateMultiAxisTool(clones, availCols) {
     ];
 
     cloneSel.innerHTML = "";
+    {
+        const opt = document.createElement("option");
+        opt.value = "__all__";
+        opt.textContent = "All clones";
+        cloneSel.appendChild(opt);
+    }
     for (const clone of clones) {
         const opt = document.createElement("option");
         opt.value = clone;
@@ -629,7 +635,7 @@ function addMultiAxisPlot(clone, cols, spec) {
     const gallery = document.getElementById("multi-axis-gallery");
     const id = `ma-${Date.now()}`;
     const plotDivId = `plot-${id}`;
-    const title = `${clone} · ${spec.layout?.legend?.title?.text ? "Multi-axis" : "Trend comparison"}`;
+    const cloneLabel = clone === "__all__" ? "All clones" : clone;
 
     const labels = (spec.traces || []).map(t => t.name).join(" · ");
     const div = document.createElement("div");
@@ -638,7 +644,7 @@ function addMultiAxisPlot(clone, cols, spec) {
     div.innerHTML = `
         <div class="card shadow-sm h-100">
             <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center">
-                <span class="small text-muted fw-semibold">${clone} · ${labels}</span>
+                <span class="small text-muted fw-semibold">${cloneLabel} · ${labels}</span>
                 <button class="btn btn-sm btn-outline-danger py-0 px-2 lh-1"
                         onclick="Plotly.purge('${plotDivId}'); document.getElementById('${id}').remove()"
                         title="Remove">✕</button>
