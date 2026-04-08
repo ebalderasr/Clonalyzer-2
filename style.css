@@ -969,6 +969,127 @@ body {
   font-family: monospace;
 }
 
+/* ── PDF modal (MD3 dialog) ── */
+.md-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.48);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  backdrop-filter: blur(2px);
+}
+.md-modal-overlay[hidden] { display: none; }
+.md-modal {
+  background: var(--md-surface);
+  border-radius: var(--md-shape-lg);
+  width: min(580px, 100%);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+  animation: modalIn 0.18s ease;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    }
+}
+.md-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--md-outline-variant);
+  flex-shrink: 0;
+}
+.md-modal-title {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--md-text-primary);
+}
+.md-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--md-text-secondary);
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+.md-modal-close:hover { background: var(--md-surface-1); }
+.md-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px;
+}
+.md-modal-hint {
+  font-size: 13px;
+  color: var(--md-text-secondary);
+  margin: 0 0 12px;
+}
+.md-modal-select-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.md-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--md-outline-variant);
+  flex-shrink: 0;
+}
+
+/* Chart list inside modal */
+.pdf-chart-group { margin-bottom: 18px; }
+.pdf-chart-group-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--md-primary);
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--md-outline-variant);
+}
+.pdf-chart-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--md-shape-sm);
+  cursor: pointer;
+  transition: background 0.13s;
+  user-select: none;
+}
+.pdf-chart-item:hover { background: var(--md-surface-1); }
+.pdf-chart-item input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--md-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.pdf-chart-icon {
+  font-size: 18px;
+  color: var(--md-text-secondary);
+  flex-shrink: 0;
+}
+.pdf-chart-label {
+  font-size: 13px;
+  color: var(--md-text-primary);
+  flex: 1;
+  text-transform: capitalize;
+}
+
 /* ── Drop zone enhanced ── */
 .md-drop-zone {
   position: relative;

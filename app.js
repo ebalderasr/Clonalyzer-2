@@ -439,6 +439,167 @@ async function specToPng(spec, width = 900, height = 500) {
     }
 }
 
+// ── PDF report ────────────────────────────────────────────────────────────────
+
+const PDF_GROUPS = [
+    { key: "scatter",      label: "Dispersión (µ, q, rendimientos)", icon: "scatter_plot" },
+    { key: "lines",        label: "Tendencias temporales",           icon: "show_chart"   },
+    { key: "bars",         label: "Resumen fase exponencial",        icon: "bar_chart"    },
+    { key: "correlations", label: "Correlaciones",                   icon: "hub"          },
+];
+
+function openPdfModal() {
+    if (!results) return;
+
+    const listEl = document.getElementById("pdf-chart-list");
+    listEl.innerHTML = "";
+
+    for (const group of PDF_GROUPS) {
+        const plots = results.plots[group.key] || {};
+        const entries = Object.entries(plots).filter(([k]) => !k.startsWith("__section__"));
+        if (entries.length === 0) continue;
+
+        const groupEl = document.createElement("div");
+        groupEl.className = "pdf-chart-group";
+        groupEl.innerHTML = `<div class="pdf-chart-group-title">${group.label}</div>`;
+
+        for (const [fname] of entries) {
+            const id = `pdf-chk-${group.key}-${fname}`;
+            // Strip leading sort-prefix numbers (e.g. "00a_VCD" → "VCD")
+            const label = fname.replace(/^\d+[a-z]?_/, "").replace(/_/g, " ");
+            const item = document.createElement("label");
+            item.className = "pdf-chart-item";
+            item.innerHTML = `
+                <input type="checkbox" id="${id}"
+                       data-group="${group.key}" data-fname="${fname}" checked />
+                <span class="material-icons pdf-chart-icon">${group.icon}</span>
+                <span class="pdf-chart-label">${label}</span>`;
+            groupEl.appendChild(item);
+        }
+
+        listEl.appendChild(groupEl);
+    }
+
+    document.getElementById("pdf-modal").removeAttribute("hidden");
+}
+
+function closePdfModal() {
+    document.getElementById("pdf-modal").setAttribute("hidden", "");
+}
+
+function pdfSelectAll() {
+    document.querySelectorAll('#pdf-chart-list input[type="checkbox"]')
+        .forEach(chk => { chk.checked = true; });
+}
+
+function pdfSelectNone() {
+    document.querySelectorAll('#pdf-chart-list input[type="checkbox"]')
+        .forEach(chk => { chk.checked = false; });
+}
+
+async function generatePdf() {
+    const { jsPDF } = window.jspdf;
+    const checked = [...document.querySelectorAll('#pdf-chart-list input[type="checkbox"]:checked')];
+
+    if (checked.length === 0) {
+        alert("Selecciona al menos una gráfica.");
+        return;
+    }
+
+    const btn = document.getElementById("btn-generate-pdf");
+    btn.disabled = true;
+
+    try {
+        // A4 landscape: 297 × 210 mm
+        const doc  = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+        const W = 297, H = 210;
+        const mX = 14, mTop = 22;
+        const imgW = W - 2 * mX;
+        const imgH = imgW * (500 / 900);   // preserve 900:500 aspect ratio
+
+        // ── Title page ─────────────────────────────────────────────────────────
+        doc.setFillColor(240, 246, 255);
+        doc.rect(0, 0, W, H, "F");
+        doc.setFontSize(28);
+        doc.setTextColor(26, 115, 232);
+        doc.text("Clonalyzer", W / 2, 70, { align: "center" });
+        doc.setFontSize(14);
+        doc.setTextColor(80, 80, 80);
+        doc.text("Reporte de cinética de cultivo celular", W / 2, 83, { align: "center" });
+
+        const info = results?.info ?? {};
+        const date = new Date().toLocaleDateString("es-MX", { dateStyle: "long" });
+        const modeLabel = info.scenario === "variable_volume" ? "Lote alimentado" : "Lote";
+        const cloneList = (info.clones ?? []).join(", ") || "—";
+
+        doc.setFontSize(11);
+        const meta = [
+            `Fecha: ${date}`,
+            `Clones: ${cloneList}`,
+            `Réplicas: ${info.n_reps ?? "—"}   ·   Puntos de tiempo: ${info.n_timepoints ?? "—"}`,
+            `Modo de cálculo: ${modeLabel}`,
+        ];
+        meta.forEach((line, i) => {
+            doc.text(line, W / 2, 102 + i * 8, { align: "center" });
+        });
+
+        doc.setFontSize(9);
+        doc.setTextColor(160, 160, 160);
+        doc.text("Generado con Clonalyzer · github.com/ebalderasr/Clonalyzer-2", W / 2, H - 8, { align: "center" });
+
+        // ── Chart pages ────────────────────────────────────────────────────────
+        let done = 0;
+        for (const chk of checked) {
+            const group = chk.dataset.group;
+            const fname = chk.dataset.fname;
+            const spec  = results.plots[group]?.[fname];
+            if (!spec) continue;
+
+            done++;
+            btn.textContent = `Generando… ${done}/${checked.length}`;
+
+            const b64 = await specToPng(spec, 900, 500);
+            doc.addPage();
+
+            // Subtle header band
+            doc.setFillColor(240, 246, 255);
+            doc.rect(0, 0, W, 18, "F");
+
+            // Chart label in header
+            const groupLabel = PDF_GROUPS.find(g => g.key === group)?.label ?? group;
+            const chartLabel = fname.replace(/^\d+[a-z]?_/, "").replace(/_/g, " ");
+            doc.setFontSize(9);
+            doc.setTextColor(26, 115, 232);
+            doc.text(groupLabel.toUpperCase(), mX, 7);
+            doc.setFontSize(12);
+            doc.setTextColor(40, 40, 40);
+            doc.text(chartLabel, mX, 15);
+
+            // Chart image — center vertically in remaining space
+            const availH = H - mTop - 10;
+            const finalH = Math.min(imgH, availH);
+            const finalW = finalH * (900 / 500);
+            const imgX   = (W - finalW) / 2;
+            doc.addImage(`data:image/png;base64,${b64}`, "PNG", imgX, mTop, finalW, finalH);
+
+            // Footer
+            doc.setFontSize(8);
+            doc.setTextColor(180, 180, 180);
+            doc.text(`${done} / ${checked.length}`, W - mX, H - 5, { align: "right" });
+        }
+
+        doc.save("clonalyzer_report.pdf");
+        closePdfModal();
+
+    } catch (err) {
+        alert("Error generando PDF: " + err.message);
+        console.error(err);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-icons" style="font-size:18px;">picture_as_pdf</span> Generar PDF`;
+    }
+}
+
 // ── Analyze another file ───────────────────────────────────────────────────────
 function analyzeAnother() {
     // Destroy existing Plotly charts to free memory
