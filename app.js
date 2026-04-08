@@ -57,26 +57,41 @@ document.addEventListener("DOMContentLoaded", () => {
 async function initPyodide() {
     try {
         setInitProgress("Loading Python runtime…", 15);
+        setInitStep(1, "active");
         pyodide = await loadPyodide();
 
         setInitProgress("Installing scientific packages…", 40);
+        setInitStep(1, "done");
+        setInitStep(2, "active");
         await pyodide.loadPackage(["pandas", "numpy", "scipy"]);
 
         setInitProgress("Loading Clonalyzer…", 80);
+        setInitStep(2, "done");
+        setInitStep(3, "active");
         const resp = await fetch("clonalyzer.py");
         if (!resp.ok) throw new Error("Could not load clonalyzer.py");
         const code = await resp.text();
         await pyodide.runPythonAsync(code);
 
         setInitProgress("Ready!", 100);
-        await sleep(400);
+        setInitStep(3, "done");
+        await sleep(500);
         show(elUploadSection);
         hide(elInitSection);
     } catch (err) {
         elInitMsg.textContent = "Error loading Python environment: " + err.message;
-        elInitMsg.style.color = "#ef4444";
+        elInitMsg.style.color = "var(--md-error)";
         console.error(err);
     }
+}
+
+function setInitStep(n, state) {
+    const step = document.getElementById(`init-step-${n}`);
+    if (!step) return;
+    step.classList.remove("active", "done");
+    step.classList.add(state);
+    const dot = step.querySelector(".init-step-dot");
+    if (dot && state === "done") dot.textContent = "✓";
 }
 
 function setInitProgress(msg, pct) {
@@ -203,13 +218,13 @@ function displayResults(r) {
 function renderColorPickers(clones, palette) {
     const container = document.getElementById("clone-color-pickers");
     container.innerHTML = clones.map((c, i) => `
-        <div class="d-flex align-items-center gap-2">
+        <div class="clone-color-chip">
             <input type="color"
                    id="clone-color-${i}"
                    value="${palette[c] || "#000000"}"
                    class="clone-color-input"
                    title="Color for ${c}" />
-            <span class="small fw-medium">${c}</span>
+            <span class="clone-name">${c}</span>
         </div>
     `).join("");
     show(document.getElementById("clone-colors-section"));
@@ -277,37 +292,31 @@ function renderInfoCards(info) {
 
     el.innerHTML = `
         <div class="col-6 col-md-3">
-            <div class="card text-center shadow-sm">
-                <div class="card-body">
-                    <div class="fs-1 fw-bold text-primary">${info.n_clones}</div>
-                    <div class="text-muted small">Clones</div>
-                    <div class="mt-1">${info.clones.join(", ")}</div>
-                </div>
+            <div class="info-stat-card">
+                <div class="info-stat-value">${info.n_clones}</div>
+                <div class="info-stat-label">Clones</div>
+                <div class="info-stat-detail">${info.clones.join(" · ")}</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card text-center shadow-sm">
-                <div class="card-body">
-                    <div class="fs-1 fw-bold text-primary">${info.n_reps}</div>
-                    <div class="text-muted small">Replicates</div>
-                </div>
+            <div class="info-stat-card">
+                <div class="info-stat-value">${info.n_reps}</div>
+                <div class="info-stat-label">Replicates</div>
+                <div class="info-stat-detail">&nbsp;</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card text-center shadow-sm">
-                <div class="card-body">
-                    <div class="fs-1 fw-bold text-primary">${info.n_timepoints}</div>
-                    <div class="text-muted small">Timepoints</div>
-                </div>
+            <div class="info-stat-card">
+                <div class="info-stat-value">${info.n_timepoints}</div>
+                <div class="info-stat-label">Timepoints</div>
+                <div class="info-stat-detail">&nbsp;</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card text-center shadow-sm">
-                <div class="card-body">
-                    <div class="fs-1 fw-bold text-primary">${info.n_rows}</div>
-                    <div class="text-muted small">Total rows ${cytoTag}</div>
-                    <div class="mt-1">${scenarioTag}</div>
-                </div>
+            <div class="info-stat-card">
+                <div class="info-stat-value">${info.n_rows}</div>
+                <div class="info-stat-label">Total rows</div>
+                <div class="info-stat-detail">${scenarioTag}<br>${cytoTag}</div>
             </div>
         </div>
     `;

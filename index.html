@@ -55,20 +55,33 @@
   <main class="md-main">
 
     <!-- ── Python init ───────────────────────────────────────────────────────── -->
-    <div id="init-section" class="md-card text-center" style="padding: 48px 24px;">
+    <div id="init-section" class="md-card text-center" style="padding: 56px 24px 48px;">
       <div class="md-spinner"></div>
-      <p id="init-msg" class="mb-3" style="font-size:15px;font-weight:500;color:var(--md-text);">
+      <p id="init-msg" style="font-size:15px;font-weight:500;color:var(--md-text);margin:0 0 6px;">
         Loading Python runtime…
       </p>
-      <div class="md-progress-track mx-auto mb-4" style="max-width:360px;">
+      <p style="font-size:12px;color:var(--md-text-secondary);margin:0 0 24px;">
+        First load ~30 s · subsequent runs are instant
+      </p>
+      <div class="md-progress-track mx-auto" style="max-width:360px;">
         <div id="init-bar" class="md-progress-bar" style="width:0%"
              role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
         </div>
       </div>
-      <p style="font-size:12px;color:var(--md-text-secondary);margin:0;">
-        First load takes ~30 s while the scientific Python stack downloads.<br>
-        Subsequent analyses on the same session are instant.
-      </p>
+      <ul class="init-steps" id="init-steps">
+        <li class="init-step active" id="init-step-1">
+          <span class="init-step-dot">1</span>
+          Python runtime
+        </li>
+        <li class="init-step" id="init-step-2">
+          <span class="init-step-dot">2</span>
+          Scientific packages (pandas, numpy, scipy)
+        </li>
+        <li class="init-step" id="init-step-3">
+          <span class="init-step-dot">3</span>
+          Clonalyzer engine
+        </li>
+      </ul>
     </div>
 
     <!-- ── Upload ────────────────────────────────────────────────────────────── -->
@@ -96,43 +109,46 @@
         </div>
       </div>
 
-      <!-- Settings -->
-      <div class="md-settings-row">
-        <label for="exp-phase-start">Exponential phase:</label>
-        <input id="exp-phase-start"
-               type="number" class="form-control form-control-sm"
-               value="0" min="0" max="9999" step="1" />
-        <span style="font-size:13px;color:var(--md-text-secondary);">h &nbsp;to</span>
-        <input id="exp-phase-end"
-               type="number" class="form-control form-control-sm"
-               value="96" min="1" max="9999" step="1" />
-        <span style="font-size:13px;color:var(--md-text-secondary);">h</span>
-      </div>
-
-      <!-- Checkboxes -->
-      <div class="d-flex flex-wrap gap-4 mb-4">
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="skip-first-row" checked />
-          <label class="form-check-label" for="skip-first-row">
-            Skip first row
-            <span style="color:var(--md-text-secondary);">(uncheck if your CSV has no metadata row)</span>
-          </label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="use-volume" checked />
-          <label class="form-check-label" for="use-volume">
-            Variable volume
-            <span style="color:var(--md-text-secondary);">(use <code>Vol_mL</code> for mass-balance calculations; uncheck to force concentration-based)</span>
-          </label>
+      <!-- Settings group: kinetics -->
+      <div class="settings-group">
+        <div class="settings-group-title">Kinetics window</div>
+        <div class="md-settings-row" style="margin-bottom:0;">
+          <label for="exp-phase-start">Exponential phase:</label>
+          <input id="exp-phase-start"
+                 type="number" class="form-control form-control-sm"
+                 value="0" min="0" max="9999" step="1" />
+          <span style="font-size:13px;color:var(--md-text-secondary);">h &nbsp;→</span>
+          <input id="exp-phase-end"
+                 type="number" class="form-control form-control-sm"
+                 value="96" min="1" max="9999" step="1" />
+          <span style="font-size:13px;color:var(--md-text-secondary);">h</span>
         </div>
       </div>
 
-      <!-- Fluorescence channel selector -->
-      <div class="mb-4">
-        <p style="font-size:13px;font-weight:500;color:var(--md-text);margin:0 0 8px;">
-          Fluorescence channels
-          <span style="font-weight:400;color:var(--md-text-secondary);">(uncheck to exclude a channel even if present in the CSV)</span>
-        </p>
+      <!-- Settings group: data options -->
+      <div class="settings-group">
+        <div class="settings-group-title">Data options</div>
+        <div class="d-flex flex-wrap gap-4">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="skip-first-row" checked />
+            <label class="form-check-label" for="skip-first-row">
+              Skip first row
+              <span style="color:var(--md-text-secondary);">(uncheck if your CSV has no metadata row)</span>
+            </label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="use-volume" checked />
+            <label class="form-check-label" for="use-volume">
+              Variable volume
+              <span style="color:var(--md-text-secondary);">(use <code>Vol_mL</code> for mass-balance; uncheck for concentration-based)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings group: fluorescence -->
+      <div class="settings-group">
+        <div class="settings-group-title">Fluorescence channels</div>
         <div class="d-flex flex-wrap gap-3">
           <div class="form-check">
             <input class="form-check-input" type="checkbox" id="fluor-gfp" checked />
@@ -151,6 +167,9 @@
             <label class="form-check-label" for="fluor-cellrox">CellROX</label>
           </div>
         </div>
+        <p style="font-size:12px;color:var(--md-text-secondary);margin:10px 0 0;">
+          Uncheck to exclude a channel even if present in the CSV.
+        </p>
       </div>
 
       <!-- Drop zone -->
@@ -169,12 +188,13 @@
     </div>
 
     <!-- ── Processing ─────────────────────────────────────────────────────────── -->
-    <div id="process-section" class="md-card text-center d-none" style="padding: 48px 24px;">
+    <div id="process-section" class="md-card text-center d-none" style="padding: 56px 24px 48px;">
       <div class="md-spinner"></div>
-      <p id="process-msg" style="font-size:15px;font-weight:500;color:var(--md-text);margin-bottom:16px;">
+      <p class="process-label">Analyzing data</p>
+      <p id="process-msg" style="font-size:15px;font-weight:500;color:var(--md-text);margin-bottom:20px;">
         Processing…
       </p>
-      <div class="md-progress-track mx-auto" style="max-width:400px;">
+      <div class="md-progress-track mx-auto" style="max-width:440px;">
         <div id="process-bar" class="md-progress-bar" style="width:0%"
              role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
         </div>
@@ -207,42 +227,42 @@
       <div class="md-card">
         <h2 class="md-card-title mb-3">Plots</h2>
 
-        <!-- Tab nav (Bootstrap tabs restyled as M3) -->
+        <!-- Tab nav (MD3 Primary Tabs) -->
         <ul id="plot-tabs" class="nav nav-tabs" role="tablist">
           <li class="nav-item">
             <button class="nav-link active" data-bs-toggle="tab"
                     data-bs-target="#tab-scatter-pane" type="button" role="tab">
-              Scatter
+              <span class="material-icons tab-icon">scatter_plot</span>Scatter
             </button>
           </li>
           <li class="nav-item">
             <button class="nav-link" data-bs-toggle="tab"
                     data-bs-target="#tab-lines-pane" type="button" role="tab">
-              Mean ± SD
+              <span class="material-icons tab-icon">show_chart</span>Mean ± SD
             </button>
           </li>
           <li class="nav-item">
             <button class="nav-link" data-bs-toggle="tab"
                     data-bs-target="#tab-bars-pane" type="button" role="tab">
-              Exp Phase
+              <span class="material-icons tab-icon">bar_chart</span>Exp Phase
             </button>
           </li>
           <li class="nav-item">
             <button class="nav-link" data-bs-toggle="tab"
                     data-bs-target="#tab-corr-pane" type="button" role="tab">
-              Correlations
+              <span class="material-icons tab-icon">hub</span>Correlations
             </button>
           </li>
           <li class="nav-item">
             <button class="nav-link" data-bs-toggle="tab"
                     data-bs-target="#tab-custom-corr-pane" type="button" role="tab">
-              Custom Correlations
+              <span class="material-icons tab-icon">tune</span>Custom Correlations
             </button>
           </li>
           <li class="nav-item">
             <button class="nav-link" data-bs-toggle="tab"
                     data-bs-target="#tab-multiaxis-pane" type="button" role="tab">
-              Multi-Axis Trends
+              <span class="material-icons tab-icon">stacked_line_chart</span>Multi-Axis Trends
             </button>
           </li>
         </ul>
@@ -327,35 +347,29 @@
 
               <div class="row g-3 mb-4">
                 <div class="col-12 col-lg-4">
-                  <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body">
-                      <div id="multi-y1-label" class="small fw-semibold text-muted mb-2">Axis 1</div>
-                      <div class="d-flex gap-2">
-                        <input id="multi-y1-min" type="number" step="any" class="form-control form-control-sm" placeholder="Min" />
-                        <input id="multi-y1-max" type="number" step="any" class="form-control form-control-sm" placeholder="Max" />
-                      </div>
+                  <div class="axis-range-card">
+                    <div id="multi-y1-label" class="axis-label">Axis 1 range</div>
+                    <div class="d-flex gap-2">
+                      <input id="multi-y1-min" type="number" step="any" class="form-control form-control-sm" placeholder="Min" />
+                      <input id="multi-y1-max" type="number" step="any" class="form-control form-control-sm" placeholder="Max" />
                     </div>
                   </div>
                 </div>
                 <div class="col-12 col-lg-4">
-                  <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body">
-                      <div id="multi-y2-label" class="small fw-semibold text-muted mb-2">Axis 2</div>
-                      <div class="d-flex gap-2">
-                        <input id="multi-y2-min" type="number" step="any" class="form-control form-control-sm" placeholder="Min" />
-                        <input id="multi-y2-max" type="number" step="any" class="form-control form-control-sm" placeholder="Max" />
-                      </div>
+                  <div class="axis-range-card">
+                    <div id="multi-y2-label" class="axis-label">Axis 2 range</div>
+                    <div class="d-flex gap-2">
+                      <input id="multi-y2-min" type="number" step="any" class="form-control form-control-sm" placeholder="Min" />
+                      <input id="multi-y2-max" type="number" step="any" class="form-control form-control-sm" placeholder="Max" />
                     </div>
                   </div>
                 </div>
                 <div class="col-12 col-lg-4">
-                  <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body">
-                      <div id="multi-y3-label" class="small fw-semibold text-muted mb-2">Axis 3</div>
-                      <div class="d-flex gap-2">
-                        <input id="multi-y3-min" type="number" step="any" class="form-control form-control-sm" placeholder="Min" />
-                        <input id="multi-y3-max" type="number" step="any" class="form-control form-control-sm" placeholder="Max" />
-                      </div>
+                  <div class="axis-range-card">
+                    <div id="multi-y3-label" class="axis-label">Axis 3 range</div>
+                    <div class="d-flex gap-2">
+                      <input id="multi-y3-min" type="number" step="any" class="form-control form-control-sm" placeholder="Min" />
+                      <input id="multi-y3-max" type="number" step="any" class="form-control form-control-sm" placeholder="Max" />
                     </div>
                   </div>
                 </div>
