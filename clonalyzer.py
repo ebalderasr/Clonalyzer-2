@@ -331,6 +331,7 @@ def _load(csv_text: str, skip_first_row: bool = True) -> pd.DataFrame:
     numeric = ["t_hr","Rep","VCD","DCD","Viab_pct","rP_mg_L",
                "Glc_g_L","Lac_g_L","Gln_mM","Glu_mM"] + \
               ([VOL_COL] if VOL_COL in df.columns else []) + \
+              (["Vol_Removed_mL"] if "Vol_Removed_mL" in df.columns else []) + \
               [c for c in OPTIONAL_COLS if c in df.columns]
     for col in numeric:
         if df[col].dtype == object:
@@ -374,6 +375,20 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
     μ ALWAYS uses VCD (concentration), never TC (total cells).
     Using TC for μ when volume decreases (sampling) yields spurious
     negative values that do not reflect true cellular growth rate.
+
+    Sample-volume correction (variable_volume only):
+    ─────────────────────────────────────────────────
+    Vol_mL records the working volume AFTER a sample was taken at that
+    time point (Vol_Removed_mL < 0).  Using the raw post-sample vol2
+    underestimates M_i2, making metabolite consumption appear larger
+    than the cells actually produced/consumed.
+
+    When Vol_Removed_mL is available for the end-of-interval row (rc),
+    the pre-sample volume is reconstructed:
+        vol2_cellular = vol2 - Vol_Removed_mL   (subtract negative → add back)
+    This vol2_cellular is used for all metabolite mass calculations
+    and for TC2 in ΔITVC, so that only true cellular activity is
+    attributed to the rate estimates.
     """
     df = df.copy()
 
@@ -426,9 +441,22 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
                 if any(pd.isna(x) for x in [v1, v2, vol1, vol2]):
                     continue
 
+                # ── Sample-volume correction ───────────────────────────────────
+                # Vol_mL is recorded AFTER the sample is withdrawn (Vol_Removed_mL < 0).
+                # Reconstruct the pre-sample volume at the end of the interval so
+                # that metabolite mass and TC reflect what was in the reactor during
+                # [t1, t2], not what remained after the measurement sample was taken.
+                vol_removed_2 = 0.0
+                if "Vol_Removed_mL" in df.columns:
+                    vr = rc["Vol_Removed_mL"]
+                    if pd.notna(vr):
+                        vol_removed_2 = float(vr)   # negative value
+                # vol2_cellular: volume in reactor at t2 BEFORE the sample was removed
+                vol2_cellular = vol2 - vol_removed_2  # subtract negative → larger volume
+
                 # TC = VCD [cells/mL] × V [mL]  →  [cells]
                 TC1 = v1 * vol1
-                TC2 = v2 * vol2
+                TC2 = v2 * vol2_cellular
 
                 # ΔITVC = (TC_1 + TC_2) / 2 × Δt  [cells·h]  (PDF eq. 3.3)
                 delta_ITVC = 0.5 * (TC1 + TC2) * dt
@@ -437,17 +465,18 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
 
                 # M_i = C_i [g/L or mM] × V [mL] / 1000  →  [g] or [mmol]
                 # Dividing by 1000 converts V from mL to L to get SI mass units.
-                M_Glc1 = rp["Glc_g_L"] * vol1 / 1000   # [g]
-                M_Glc2 = rc["Glc_g_L"] * vol2 / 1000
-                M_Lac1 = rp["Lac_g_L"] * vol1 / 1000   # [g]
-                M_Lac2 = rc["Lac_g_L"] * vol2 / 1000
-                M_Gln1 = rp["Gln_mM"]  * vol1 / 1000   # [mmol]
-                M_Gln2 = rc["Gln_mM"]  * vol2 / 1000
-                M_Glu1 = rp["Glu_mM"]  * vol1 / 1000   # [mmol]
-                M_Glu2 = rc["Glu_mM"]  * vol2 / 1000
+                # vol2_cellular used at t2 to exclude substrate removed with the sample.
+                M_Glc1 = rp["Glc_g_L"] * vol1         / 1000   # [g]
+                M_Glc2 = rc["Glc_g_L"] * vol2_cellular / 1000
+                M_Lac1 = rp["Lac_g_L"] * vol1         / 1000   # [g]
+                M_Lac2 = rc["Lac_g_L"] * vol2_cellular / 1000
+                M_Gln1 = rp["Gln_mM"]  * vol1         / 1000   # [mmol]
+                M_Gln2 = rc["Gln_mM"]  * vol2_cellular / 1000
+                M_Glu1 = rp["Glu_mM"]  * vol1         / 1000   # [mmol]
+                M_Glu2 = rc["Glu_mM"]  * vol2_cellular / 1000
                 # NaN propagates: if either endpoint lacks rP, qP stays NaN for this interval
-                M_rP1 = rp["rP_mg_L"] * vol1 / 1000    # [mg]; NaN if measurement missing
-                M_rP2 = rc["rP_mg_L"] * vol2 / 1000
+                M_rP1 = rp["rP_mg_L"] * vol1         / 1000    # [mg]; NaN if measurement missing
+                M_rP2 = rc["rP_mg_L"] * vol2_cellular / 1000
 
                 # q_i = ΔM_i / ΔITVC  with unit conversions to pg/cell/day
                 # [g]    / [cells·h] × 10^12 pg/g    × 24 h/day  → pg/cell/day
