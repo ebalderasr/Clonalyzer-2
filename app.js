@@ -441,6 +441,33 @@ async function specToPng(spec, width = 900, height = 500) {
 
 // ── PDF report ────────────────────────────────────────────────────────────────
 
+/**
+ * Render the Clonalyzer logo (⚗ on blue-tinted rounded square) into a
+ * canvas and return a PNG data URL.  Reused across full and compact PDFs.
+ */
+function logoDataUrl(size = 80) {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    const r = size * 0.26;
+    // Background
+    ctx.fillStyle = "#e8f0fe";
+    if (ctx.roundRect) {
+        ctx.beginPath(); ctx.roundRect(1, 1, size - 2, size - 2, r); ctx.fill();
+        ctx.strokeStyle = "#c5d9fb"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.roundRect(1, 1, size - 2, size - 2, r); ctx.stroke();
+    } else {
+        ctx.fillRect(0, 0, size, size);
+    }
+    // Glyph
+    ctx.font = `${Math.round(size * 0.50)}px serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#1a73e8";
+    ctx.fillText("⚗", size / 2, size / 2 + size * 0.02);
+    return canvas.toDataURL("image/png");
+}
+
 const PDF_GROUPS = [
     { key: "scatter",      label: "Dispersión (µ, q, rendimientos)", icon: "scatter_plot" },
     { key: "lines",        label: "Tendencias temporales",           icon: "show_chart"   },
@@ -517,20 +544,26 @@ async function generatePdf() {
         const imgW = W - 2 * mX;
         const imgH = imgW * (500 / 900);   // preserve 900:500 aspect ratio
 
-        // ── Title page ─────────────────────────────────────────────────────────
-        doc.setFillColor(240, 246, 255);
-        doc.rect(0, 0, W, H, "F");
-        doc.setFontSize(28);
-        doc.setTextColor(26, 115, 232);
-        doc.text("Clonalyzer", W / 2, 70, { align: "center" });
-        doc.setFontSize(14);
-        doc.setTextColor(80, 80, 80);
-        doc.text("Reporte de cinética de cultivo celular", W / 2, 83, { align: "center" });
-
+        const logo = logoDataUrl(120);
         const info = results?.info ?? {};
         const date = new Date().toLocaleDateString("es-MX", { dateStyle: "long" });
         const modeLabel = info.scenario === "variable_volume" ? "Lote alimentado" : "Lote";
         const cloneList = (info.clones ?? []).join(", ") || "—";
+
+        // ── Title page ─────────────────────────────────────────────────────────
+        doc.setFillColor(240, 246, 255);
+        doc.rect(0, 0, W, H, "F");
+
+        // Logo centered
+        const logoMm = 22;
+        doc.addImage(logo, "PNG", (W - logoMm) / 2, 38, logoMm, logoMm);
+
+        doc.setFontSize(28);
+        doc.setTextColor(26, 115, 232);
+        doc.text("Clonalyzer", W / 2, 72, { align: "center" });
+        doc.setFontSize(13);
+        doc.setTextColor(80, 80, 80);
+        doc.text("Reporte de cinética de cultivo celular", W / 2, 82, { align: "center" });
 
         doc.setFontSize(11);
         const meta = [
@@ -539,9 +572,7 @@ async function generatePdf() {
             `Réplicas: ${info.n_reps ?? "—"}   ·   Puntos de tiempo: ${info.n_timepoints ?? "—"}`,
             `Modo de cálculo: ${modeLabel}`,
         ];
-        meta.forEach((line, i) => {
-            doc.text(line, W / 2, 102 + i * 8, { align: "center" });
-        });
+        meta.forEach((line, i) => doc.text(line, W / 2, 97 + i * 8, { align: "center" }));
 
         doc.setFontSize(9);
         doc.setTextColor(160, 160, 160);
@@ -561,19 +592,22 @@ async function generatePdf() {
             const b64 = await specToPng(spec, 900, 500);
             doc.addPage();
 
-            // Subtle header band
+            // Header band
             doc.setFillColor(240, 246, 255);
-            doc.rect(0, 0, W, 18, "F");
+            doc.rect(0, 0, W, 20, "F");
 
-            // Chart label in header
+            // Small logo in header
+            const hLogoMm = 10;
+            doc.addImage(logo, "PNG", mX, 5, hLogoMm, hLogoMm);
+
             const groupLabel = PDF_GROUPS.find(g => g.key === group)?.label ?? group;
             const chartLabel = fname.replace(/^\d+[a-z]?_/, "").replace(/_/g, " ");
-            doc.setFontSize(9);
+            doc.setFontSize(8);
             doc.setTextColor(26, 115, 232);
-            doc.text(groupLabel.toUpperCase(), mX, 7);
+            doc.text(groupLabel.toUpperCase(), mX + hLogoMm + 3, 8);
             doc.setFontSize(12);
             doc.setTextColor(40, 40, 40);
-            doc.text(chartLabel, mX, 15);
+            doc.text(chartLabel, mX + hLogoMm + 3, 16);
 
             // Chart image — center vertically in remaining space
             const availH = H - mTop - 10;
@@ -596,7 +630,133 @@ async function generatePdf() {
         console.error(err);
     } finally {
         btn.disabled = false;
-        btn.innerHTML = `<span class="material-icons" style="font-size:18px;">picture_as_pdf</span> Generar PDF`;
+        btn.innerHTML = `<span class="material-icons" style="font-size:18px;">picture_as_pdf</span> PDF completo`;
+    }
+}
+
+async function generateCompactPdf() {
+    const { jsPDF } = window.jspdf;
+    const checked = [...document.querySelectorAll('#pdf-chart-list input[type="checkbox"]:checked')];
+
+    if (checked.length === 0) {
+        alert("Selecciona al menos una gráfica.");
+        return;
+    }
+
+    const btn = document.getElementById("btn-generate-compact");
+    btn.disabled = true;
+
+    try {
+        // Letter portrait: 215.9 × 279.4 mm  —  2 columns × 4 rows = 8 charts/page
+        const doc  = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
+        const PW = 215.9, PH = 279.4;
+        const COLS = 2, ROWS = 4;
+        const mX = 8, mTop = 8, mBot = 8;
+        const hdrH    = 16;    // header band height (logo + text + separator)
+        const labelH  = 4;     // chart title above each image
+        const gapX    = 4;     // horizontal gap between columns
+        const gapY    = 3;     // vertical gap between rows
+        const startY  = mTop + hdrH;
+
+        const chartW  = (PW - 2 * mX - gapX) / COLS;                 // ≈ 97.95 mm
+        const chartH  = chartW / (900 / 500);                          // ≈ 54.42 mm
+        const cellH   = labelH + chartH;                               // ≈ 58.42 mm
+
+        const logo = logoDataUrl(120);
+        const info = results?.info ?? {};
+        const cloneList  = (info.clones ?? []).join(", ") || "—";
+        const modeLabel  = info.scenario === "variable_volume" ? "Lote alimentado" : "Lote";
+        const date       = new Date().toLocaleDateString("es-MX", { dateStyle: "long" });
+
+        // Collect all selected chart specs in order
+        const allCharts = [];
+        for (const chk of checked) {
+            const group = chk.dataset.group;
+            const fname = chk.dataset.fname;
+            const spec  = results.plots[group]?.[fname];
+            if (!spec) continue;
+            const label      = fname.replace(/^\d+[a-z]?_/, "").replace(/_/g, " ");
+            const groupLabel = PDF_GROUPS.find(g => g.key === group)?.label ?? group;
+            allCharts.push({ spec, label, groupLabel });
+        }
+
+        const perPage   = COLS * ROWS;
+        const totalPages = Math.ceil(allCharts.length / perPage);
+        let done = 0;
+
+        for (let pg = 0; pg < totalPages; pg++) {
+            if (pg > 0) doc.addPage();
+
+            // ── Page header ────────────────────────────────────────────────────
+            doc.setFillColor(240, 246, 255);
+            doc.rect(0, 0, PW, mTop + hdrH - 1, "F");
+
+            // Logo
+            const hLogoMm = 10;
+            doc.addImage(logo, "PNG", mX, mTop + 2, hLogoMm, hLogoMm);
+
+            // "Clonalyzer" title
+            doc.setFontSize(10);
+            doc.setTextColor(26, 115, 232);
+            doc.text("Clonalyzer", mX + hLogoMm + 2.5, mTop + 7);
+
+            // Dataset info
+            doc.setFontSize(7);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Clones: ${cloneList}  ·  ${modeLabel}  ·  ${date}`,
+                     mX + hLogoMm + 2.5, mTop + 12.5);
+
+            // Page number (right)
+            doc.setFontSize(7.5);
+            doc.setTextColor(26, 115, 232);
+            doc.text(`${pg + 1} / ${totalPages}`, PW - mX, mTop + 7, { align: "right" });
+
+            // Separator line
+            doc.setDrawColor(197, 217, 251);
+            doc.setLineWidth(0.4);
+            doc.line(mX, mTop + hdrH - 1, PW - mX, mTop + hdrH - 1);
+
+            // ── Charts grid ────────────────────────────────────────────────────
+            const slice = allCharts.slice(pg * perPage, (pg + 1) * perPage);
+
+            for (let i = 0; i < slice.length; i++) {
+                const { spec, label } = slice[i];
+                const col = i % COLS;
+                const row = Math.floor(i / COLS);
+                const x   = mX + col * (chartW + gapX);
+                const y   = startY + row * (cellH + gapY);
+
+                done++;
+                btn.textContent = `Generando… ${done}/${allCharts.length}`;
+
+                // Chart label
+                doc.setFontSize(6.5);
+                doc.setTextColor(60, 60, 60);
+                doc.text(label, x + chartW / 2, y + 3.5,
+                         { align: "center", maxWidth: chartW });
+
+                // Chart image
+                const b64 = await specToPng(spec, 900, 500);
+                doc.addImage(`data:image/png;base64,${b64}`, "PNG",
+                             x, y + labelH, chartW, chartH);
+            }
+
+            // Bottom credit
+            doc.setFontSize(6);
+            doc.setTextColor(200, 200, 200);
+            doc.text("Clonalyzer · github.com/ebalderasr/Clonalyzer-2",
+                     PW / 2, PH - 3, { align: "center" });
+        }
+
+        doc.save("clonalyzer_compact.pdf");
+        closePdfModal();
+
+    } catch (err) {
+        alert("Error generando PDF compacto: " + err.message);
+        console.error(err);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-icons" style="font-size:18px;">auto_stories</span> PDF compacto`;
     }
 }
 

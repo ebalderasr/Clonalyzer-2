@@ -454,9 +454,15 @@
           </div>
           <div class="md-modal-footer">
             <button class="btn-md-text-sm" onclick="closePdfModal()">Cancelar</button>
-            <button id="btn-generate-pdf" class="btn-md-tonal" onclick="generatePdf()">
+            <button id="btn-generate-compact" class="btn-md-outlined" onclick="generateCompactPdf()"
+                    title="Carta vertical · 8 gráficas por hoja · ideal para bitácora">
+              <span class="material-icons" style="font-size:18px;">auto_stories</span>
+              PDF compacto
+            </button>
+            <button id="btn-generate-pdf" class="btn-md-tonal" onclick="generatePdf()"
+                    title="A4 horizontal · una gráfica por página · alta resolución">
               <span class="material-icons" style="font-size:18px;">picture_as_pdf</span>
-              Generar PDF
+              PDF completo
             </button>
           </div>
         </div>
