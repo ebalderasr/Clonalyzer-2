@@ -15,7 +15,7 @@ let elInitBar, elInitMsg, elInitSection;
 let elUploadSection, elDropZone, elFileInput;
 let elProcessSection, elProcessBar, elProcessMsg;
 let elResultsSection;
-let elExpPhaseStartInput, elExpPhaseInput, elSkipFirstRow, elUseVolume;
+let elExpPhaseStartInput, elExpPhaseInput, elSkipFirstRow;
 let elFluorGFP, elFluorTMRM, elFluorBODIPY, elFluorCellROX;
 
 // ── Plotly config used for all interactive charts ──────────────────────────────
@@ -42,8 +42,15 @@ document.addEventListener("DOMContentLoaded", () => {
     elExpPhaseStartInput = document.getElementById("exp-phase-start");
     elExpPhaseInput      = document.getElementById("exp-phase-end");
     elSkipFirstRow       = document.getElementById("skip-first-row");
-    elUseVolume          = document.getElementById("use-volume");
     elFluorGFP           = document.getElementById("fluor-gfp");
+
+    // Culture mode radio cards — update visual selection state on change
+    document.querySelectorAll('input[name="culture-mode"]').forEach(radio => {
+        radio.addEventListener("change", () => {
+            document.querySelectorAll(".culture-mode-card").forEach(card => card.classList.remove("selected"));
+            radio.closest(".culture-mode-card").classList.add("selected");
+        });
+    });
     elFluorTMRM          = document.getElementById("fluor-tmrm");
     elFluorBODIPY        = document.getElementById("fluor-bodipy");
     elFluorCellROX       = document.getElementById("fluor-cellrox");
@@ -147,7 +154,8 @@ async function handleFile(file) {
         const expPhaseStart = parseFloat(elExpPhaseStartInput.value) || 0.0;
         const expPhaseEnd   = parseFloat(elExpPhaseInput.value) || 96.0;
         const skipFirstRow  = elSkipFirstRow.checked;
-        const useVolume     = elUseVolume.checked;
+        const selectedMode  = document.querySelector('input[name="culture-mode"]:checked')?.value ?? "batch";
+        const useVolume     = selectedMode === "fedbatch";
 
         // Build comma-separated list of enabled fluorescence channels
         const fluorParts = [];

@@ -331,7 +331,6 @@ def _load(csv_text: str, skip_first_row: bool = True) -> pd.DataFrame:
     numeric = ["t_hr","Rep","VCD","DCD","Viab_pct","rP_mg_L",
                "Glc_g_L","Lac_g_L","Gln_mM","Glu_mM"] + \
               ([VOL_COL] if VOL_COL in df.columns else []) + \
-              (["Vol_Removed_mL"] if "Vol_Removed_mL" in df.columns else []) + \
               [c for c in OPTIONAL_COLS if c in df.columns]
     for col in numeric:
         if df[col].dtype == object:
@@ -355,51 +354,46 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
     Compute kinetic and metabolic parameters for every consecutive interval
     within each Clone × Rep group.
 
-    Two independent calculation paths (PDF §2 and §3):
+    Two calculation modes selected by the user:
     ────────────────────────────────────────────────────
-    • variable_volume  (Vol_mL present AND use_volume=True):  PDF §3
-        - TC    = VCD × V  (total viable cells)
-        - M_i   = C_i × V  (total mass / moles of metabolite i)
-        - ΔITVC = (TC_1 + TC_2) / 2 × Δt
-        - q_i   = ΔM_i / ΔITVC
-        - Y     = ΔM_product / ΔM_substrate
-
-    • constant_volume  (Vol_mL absent OR use_volume=False):   PDF §2
-        - No volume data used at all
+    • batch / constant_volume  (use_volume=False, default):
+        - No volume data used at all.
         - ΔIVCD = (VCD_1 + VCD_2) / 2 × Δt
         - q_i   = ΔC_i / ΔIVCD
-        - Y     = ΔC_product / ΔC_substrate
+        - Correct for batch cultures and for the initial batch phase
+          of fed-batch cultures, where concentration changes reflect
+          cellular activity alone (no feed dilution).
 
-    Critical exception (both scenarios):
-    ─────────────────────────────────────
-    μ ALWAYS uses VCD (concentration), never TC (total cells).
-    Using TC for μ when volume decreases (sampling) yields spurious
-    negative values that do not reflect true cellular growth rate.
+    • fed_batch / hybrid  (use_volume=True, Vol_mL and is_post_feed required):
+        Per Clone × Rep group, detects the first feed event
+        (first row where is_post_feed=True) and applies TWO methods:
 
-    Sample-volume correction (variable_volume only):
-    ─────────────────────────────────────────────────
-    Vol_mL records the working volume AFTER a sample was taken at that
-    time point (Vol_Removed_mL < 0).  Using the raw post-sample vol2
-    underestimates M_i2, making metabolite consumption appear larger
-    than the cells actually produced/consumed.
+        ① Before the first feed event → concentration-based (same as batch)
+          Avoids overestimating q during the initial batch phase, when
+          volume only decreases from sampling (not from feed additions).
 
-    When Vol_Removed_mL is available for the end-of-interval row (rc),
-    the pre-sample volume is reconstructed:
-        vol2_cellular = vol2 - Vol_Removed_mL   (subtract negative → add back)
-    This vol2_cellular is used for all metabolite mass calculations
-    and for TC2 in ΔITVC, so that only true cellular activity is
-    attributed to the rate estimates.
+        ② From the first feed event onwards → mass-balance:
+            TC    = VCD × V          (total viable cells in reactor)
+            M_i   = C_i × V          (total mass / moles of metabolite i)
+            ΔITVC = (TC_1 + TC_2) / 2 × Δt
+            q_i   = ΔM_i / ΔITVC
+          Necessary when feed additions dilute substrates/products,
+          making raw concentration changes a poor proxy for cellular rates.
+
+    μ always uses VCD (concentration-based) regardless of mode.
+    Using TC for μ produces spurious negative values when volume drops.
     """
     df = df.copy()
 
     # ── Scenario detection ────────────────────────────────────────────────────
-    # has_vol is True only when the column is present AND the user has opted in
-    has_vol = (VOL_COL in df.columns) and bool(use_volume)
+    # has_vol_global: fed-batch mode requested AND Vol_mL is present.
+    # Per-interval use_mass_balance flag is set inside the group loop.
+    has_vol_global = (VOL_COL in df.columns) and bool(use_volume)
 
     out_cols = [MU, QGLC, QLAC, QGLC_PMOL, QLAC_PMOL, QP,
                 QGLN_H, QGLN_D, QGLU_H, QGLU_D,
                 Y_LG, Y_GQ, Y_XG, Y_XE, IVCD_INT, IVCD_CUM]
-    if has_vol:
+    if has_vol_global:
         out_cols += [ITVC_INT, ITVC_CUM]
     out_cols += [rc for _, rc, _ in _active_fluor(df, fluor_set)]
     for col in out_cols:
@@ -408,6 +402,16 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
     for (_, _rep), grp in df.groupby(["Clone","Rep"], sort=False):
         idx = grp.index.tolist()
         ivcd_cum = itvc_cum = 0.0
+
+        # ── First feed event (fed-batch mode only) ────────────────────────────
+        # Mass balance is applied only from the first is_post_feed=True row
+        # onwards. Before that the culture behaves as a batch (no dilution from
+        # feed additions), so concentration-based q is more accurate.
+        t_first_feed = np.inf
+        if has_vol_global:
+            post_feed = grp[grp[FEED_COL] == True]
+            if not post_feed.empty:
+                t_first_feed = float(post_feed["t_hr"].min())
 
         for k in range(1, len(idx)):
             ip, ic = idx[k-1], idx[k]
@@ -428,7 +432,11 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
             if pd.notna(v1) and pd.notna(v2) and v1 > 0 and v2 > 0:
                 df.at[ic, MU] = np.log(v2 / v1) / dt
 
-            if has_vol:
+            # Mass balance only when: fed-batch mode enabled AND Vol_mL present
+            # AND the interval starts at or after the first feed event.
+            use_mass_balance = has_vol_global and (rp["t_hr"] >= t_first_feed)
+
+            if use_mass_balance:
                 # ══════════════════════════════════════════════════════════════
                 # VARIABLE VOLUME — mass-balance approach  (PDF §3)
                 #
@@ -441,22 +449,9 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
                 if any(pd.isna(x) for x in [v1, v2, vol1, vol2]):
                     continue
 
-                # ── Sample-volume correction ───────────────────────────────────
-                # Vol_mL is recorded AFTER the sample is withdrawn (Vol_Removed_mL < 0).
-                # Reconstruct the pre-sample volume at the end of the interval so
-                # that metabolite mass and TC reflect what was in the reactor during
-                # [t1, t2], not what remained after the measurement sample was taken.
-                vol_removed_2 = 0.0
-                if "Vol_Removed_mL" in df.columns:
-                    vr = rc["Vol_Removed_mL"]
-                    if pd.notna(vr):
-                        vol_removed_2 = float(vr)   # negative value
-                # vol2_cellular: volume in reactor at t2 BEFORE the sample was removed
-                vol2_cellular = vol2 - vol_removed_2  # subtract negative → larger volume
-
                 # TC = VCD [cells/mL] × V [mL]  →  [cells]
                 TC1 = v1 * vol1
-                TC2 = v2 * vol2_cellular
+                TC2 = v2 * vol2
 
                 # ΔITVC = (TC_1 + TC_2) / 2 × Δt  [cells·h]  (PDF eq. 3.3)
                 delta_ITVC = 0.5 * (TC1 + TC2) * dt
@@ -465,18 +460,17 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
 
                 # M_i = C_i [g/L or mM] × V [mL] / 1000  →  [g] or [mmol]
                 # Dividing by 1000 converts V from mL to L to get SI mass units.
-                # vol2_cellular used at t2 to exclude substrate removed with the sample.
-                M_Glc1 = rp["Glc_g_L"] * vol1         / 1000   # [g]
-                M_Glc2 = rc["Glc_g_L"] * vol2_cellular / 1000
-                M_Lac1 = rp["Lac_g_L"] * vol1         / 1000   # [g]
-                M_Lac2 = rc["Lac_g_L"] * vol2_cellular / 1000
-                M_Gln1 = rp["Gln_mM"]  * vol1         / 1000   # [mmol]
-                M_Gln2 = rc["Gln_mM"]  * vol2_cellular / 1000
-                M_Glu1 = rp["Glu_mM"]  * vol1         / 1000   # [mmol]
-                M_Glu2 = rc["Glu_mM"]  * vol2_cellular / 1000
+                M_Glc1 = rp["Glc_g_L"] * vol1 / 1000   # [g]
+                M_Glc2 = rc["Glc_g_L"] * vol2 / 1000
+                M_Lac1 = rp["Lac_g_L"] * vol1 / 1000   # [g]
+                M_Lac2 = rc["Lac_g_L"] * vol2 / 1000
+                M_Gln1 = rp["Gln_mM"]  * vol1 / 1000   # [mmol]
+                M_Gln2 = rc["Gln_mM"]  * vol2 / 1000
+                M_Glu1 = rp["Glu_mM"]  * vol1 / 1000   # [mmol]
+                M_Glu2 = rc["Glu_mM"]  * vol2 / 1000
                 # NaN propagates: if either endpoint lacks rP, qP stays NaN for this interval
-                M_rP1 = rp["rP_mg_L"] * vol1         / 1000    # [mg]; NaN if measurement missing
-                M_rP2 = rc["rP_mg_L"] * vol2_cellular / 1000
+                M_rP1 = rp["rP_mg_L"] * vol1 / 1000    # [mg]; NaN if measurement missing
+                M_rP2 = rc["rP_mg_L"] * vol2 / 1000
 
                 # q_i = ΔM_i / ΔITVC  with unit conversions to pg/cell/day
                 # [g]    / [cells·h] × 10^12 pg/g    × 24 h/day  → pg/cell/day
@@ -1342,7 +1336,11 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
 
     cb("Done!", 100)
 
-    scenario = SCENARIO_VAR if ((VOL_COL in df_kin.columns) and bool(use_volume)) else SCENARIO_CONST
+    if bool(use_volume) and VOL_COL in df_kin.columns:
+        has_any_feed = (df_kin[FEED_COL] == True).any()
+        scenario = SCENARIO_VAR if has_any_feed else SCENARIO_CONST
+    else:
+        scenario = SCENARIO_CONST
 
     # Channels that are both enabled by the user AND have data in the CSV
     active_fluor = [lbl for _, _, lbl in _active_fluor(df_kin, fluor_set)]
