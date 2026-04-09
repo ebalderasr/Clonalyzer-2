@@ -596,12 +596,12 @@
         </button>
         <button id="btn-pdf" class="btn-md-tonal" onclick="openPdfModal()">
           <span class="material-icons" style="font-size:20px;">picture_as_pdf</span>
-          Reporte PDF
+          PDF Report
         </button>
         <button class="btn-md-outlined" onclick="analyzeAnother()">
           Analyze another file
         </button>
-        <span class="md-action-hint">ZIP incluye CSVs + imágenes · PDF con gráficas seleccionadas</span>
+        <span class="md-action-hint">ZIP includes CSVs + images · PDF with selected charts</span>
       </div>
 
       <!-- PDF Report Modal -->
@@ -609,30 +609,30 @@
         <div class="md-modal">
           <div class="md-modal-header">
             <span class="material-icons" style="color:var(--md-primary)">picture_as_pdf</span>
-            <h2 class="md-modal-title">Reporte PDF</h2>
-            <button class="md-modal-close" onclick="closePdfModal()" aria-label="Cerrar">
+            <h2 class="md-modal-title">PDF Report</h2>
+            <button class="md-modal-close" onclick="closePdfModal()" aria-label="Close">
               <span class="material-icons">close</span>
             </button>
           </div>
           <div class="md-modal-body">
-            <p class="md-modal-hint">Selecciona las gráficas que quieres incluir en el reporte.</p>
+            <p class="md-modal-hint">Select the charts to include in the report.</p>
             <div class="md-modal-select-row">
-              <button class="btn-md-text-sm" onclick="pdfSelectAll()">Seleccionar todo</button>
-              <button class="btn-md-text-sm" onclick="pdfSelectNone()">Ninguno</button>
+              <button class="btn-md-text-sm" onclick="pdfSelectAll()">Select all</button>
+              <button class="btn-md-text-sm" onclick="pdfSelectNone()">None</button>
             </div>
             <div id="pdf-chart-list"></div>
           </div>
           <div class="md-modal-footer">
-            <button class="btn-md-text-sm" onclick="closePdfModal()">Cancelar</button>
+            <button class="btn-md-text-sm" onclick="closePdfModal()">Cancel</button>
             <button id="btn-generate-compact" class="btn-md-outlined" onclick="generateCompactPdf()"
-                    title="Carta vertical · 8 gráficas por hoja · ideal para bitácora">
+                    title="Letter portrait · 8 charts per page · ideal for lab notebooks">
               <span class="material-icons" style="font-size:18px;">auto_stories</span>
-              PDF compacto
+              Compact PDF
             </button>
             <button id="btn-generate-pdf" class="btn-md-tonal" onclick="generatePdf()"
-                    title="A4 horizontal · una gráfica por página · alta resolución">
+                    title="A4 landscape · one chart per page · high resolution">
               <span class="material-icons" style="font-size:18px;">picture_as_pdf</span>
-              PDF completo
+              Full PDF
             </button>
           </div>
         </div>
