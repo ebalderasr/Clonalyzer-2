@@ -113,12 +113,17 @@
       <!-- Settings group: kinetics -->
       <div class="settings-group">
         <div class="settings-group-title">Kinetics window</div>
+        <p class="settings-group-context">
+          Define el intervalo de tiempo en que las células están en <strong>fase exponencial</strong>.
+          Solo los puntos dentro de este rango se usan para estimar μ y las tasas específicas de consumo/producción (q).
+        </p>
         <div class="md-settings-row" style="margin-bottom:0;">
-          <label for="exp-phase-start">Exponential phase:</label>
+          <label for="exp-phase-start">Inicio:</label>
           <input id="exp-phase-start"
                  type="number" class="form-control form-control-sm"
                  value="0" min="0" max="9999" step="1" />
-          <span style="font-size:13px;color:var(--md-text-secondary);">h &nbsp;→</span>
+          <span style="font-size:13px;color:var(--md-text-secondary);">h &nbsp;→&nbsp;</span>
+          <label for="exp-phase-end">Fin:</label>
           <input id="exp-phase-end"
                  type="number" class="form-control form-control-sm"
                  value="96" min="1" max="9999" step="1" />
@@ -138,60 +143,96 @@
         </div>
 
         <!-- Culture mode selector (MD3 radio cards) -->
-        <div class="settings-group-label">Culture mode</div>
+        <div class="settings-group-label">Modo de cultivo</div>
         <div class="culture-mode-selector">
+
           <label class="culture-mode-card selected" for="mode-batch">
             <input type="radio" id="mode-batch" name="culture-mode" value="batch" checked />
             <span class="material-icons culture-mode-icon">science</span>
             <div class="culture-mode-info">
-              <div class="culture-mode-title">Lote</div>
+              <div class="culture-mode-title">Lote <span class="culture-mode-badge">Batch</span></div>
+              <div class="culture-mode-subtitle">Cultivo cerrado · sin alimentaciones de medio</div>
               <div class="culture-mode-desc">
-                Calcula q con cambios de <strong>concentración</strong>.
-                No requiere <code>Vol_mL</code>.<br>
-                Adecuado para cultivos batch o para datos sin alimentación.
+                Todos los nutrientes se suministran al inicio del cultivo. No se añade medio durante el proceso, por lo que el volumen permanece esencialmente constante.
+                <br><br>
+                El analizador calcula μ y las tasas específicas (q) directamente a partir de los <strong>cambios de concentración</strong> entre muestras consecutivas.
+              </div>
+              <div class="culture-mode-hint">
+                <span class="material-icons" style="font-size:13px;vertical-align:-2px;color:var(--md-tertiary);">check_circle</span>
+                No requiere <code>Vol_mL</code> ni <code>is_post_feed</code>
               </div>
             </div>
           </label>
+
           <label class="culture-mode-card" for="mode-fedbatch">
             <input type="radio" id="mode-fedbatch" name="culture-mode" value="fedbatch" />
             <span class="material-icons culture-mode-icon">water_drop</span>
             <div class="culture-mode-info">
-              <div class="culture-mode-title">Lote alimentado</div>
+              <div class="culture-mode-title">Lote alimentado <span class="culture-mode-badge">Fed-batch</span></div>
+              <div class="culture-mode-subtitle">Cultivo con alimentaciones de medio concentrado</div>
               <div class="culture-mode-desc">
-                Fase inicial (sin alimentación): concentraciones.<br>
-                Desde la primera alimentación: <strong>balance de masas</strong>.<br>
-                Requiere <code>Vol_mL</code> e <code>is_post_feed</code>
-                (<code>FALSE</code> = sin alimentación · <code>TRUE</code> = muestra post-alimentación).
+                Se añaden soluciones concentradas (feeds) en momentos definidos del proceso, incrementando el volumen del cultivo progresivamente.
+                <br><br>
+                Para compensar el efecto de dilución de las alimentaciones, el analizador usa <strong>balance de masas</strong> (moles&nbsp;=&nbsp;concentración&nbsp;×&nbsp;volumen): antes de la primera alimentación trabaja con concentraciones; a partir de ella, con moles.
+              </div>
+              <div class="culture-mode-reqs">
+                <div class="culture-mode-req-label">Columnas requeridas:</div>
+                <div class="culture-mode-req-row">
+                  <code>Vol_mL</code>
+                  <span>Volumen del cultivo (mL) en cada punto de muestreo</span>
+                </div>
+                <div class="culture-mode-req-row">
+                  <code>is_post_feed</code>
+                  <span><strong>FALSE</strong> = muestra tomada antes de una alimentación · <strong>TRUE</strong> = muestra tomada justo después de añadir el feed</span>
+                </div>
               </div>
             </div>
           </label>
+
         </div>
       </div>
 
       <!-- Settings group: fluorescence -->
       <div class="settings-group">
         <div class="settings-group-title">Fluorescence channels</div>
-        <div class="d-flex flex-wrap gap-3">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="fluor-gfp" checked />
-            <label class="form-check-label" for="fluor-gfp">GFP</label>
+        <p class="settings-group-context">
+          Datos opcionales de <strong>citometría de flujo</strong>. Activa únicamente los canales presentes en tu archivo CSV.
+          Si tu experimento no incluyó citometría, desactiva todos los canales para evitar errores de lectura.
+        </p>
+        <div class="fluor-grid">
+          <div class="fluor-row">
+            <input class="form-check-input fluor-check" type="checkbox" id="fluor-gfp" checked />
+            <span class="fluor-dot" style="background:#22c55e;"></span>
+            <div class="fluor-text">
+              <label class="fluor-name" for="fluor-gfp">GFP</label>
+              <span class="fluor-desc">Proteína fluorescente verde · expresión del transgén / productividad</span>
+            </div>
           </div>
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="fluor-tmrm" checked />
-            <label class="form-check-label" for="fluor-tmrm">TMRM</label>
+          <div class="fluor-row">
+            <input class="form-check-input fluor-check" type="checkbox" id="fluor-tmrm" checked />
+            <span class="fluor-dot" style="background:#f97316;"></span>
+            <div class="fluor-text">
+              <label class="fluor-name" for="fluor-tmrm">TMRM</label>
+              <span class="fluor-desc">Potencial de membrana mitocondrial · salud y metabolismo celular</span>
+            </div>
           </div>
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="fluor-bodipy" checked />
-            <label class="form-check-label" for="fluor-bodipy">BODIPY</label>
+          <div class="fluor-row">
+            <input class="form-check-input fluor-check" type="checkbox" id="fluor-bodipy" checked />
+            <span class="fluor-dot" style="background:#eab308;"></span>
+            <div class="fluor-text">
+              <label class="fluor-name" for="fluor-bodipy">BODIPY</label>
+              <span class="fluor-desc">Contenido de lípidos intracelulares · metabolismo lipídico</span>
+            </div>
           </div>
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="fluor-cellrox" checked />
-            <label class="form-check-label" for="fluor-cellrox">CellROX</label>
+          <div class="fluor-row">
+            <input class="form-check-input fluor-check" type="checkbox" id="fluor-cellrox" checked />
+            <span class="fluor-dot" style="background:#ef4444;"></span>
+            <div class="fluor-text">
+              <label class="fluor-name" for="fluor-cellrox">CellROX</label>
+              <span class="fluor-desc">Especies reactivas de oxígeno (ROS) · estrés oxidativo</span>
+            </div>
           </div>
         </div>
-        <p style="font-size:12px;color:var(--md-text-secondary);margin:10px 0 0;">
-          Uncheck to exclude a channel even if present in the CSV.
-        </p>
       </div>
 
       <!-- Drop zone -->
