@@ -679,22 +679,22 @@
           <p>
             Clonalyzer processes time-series measurements from mammalian cell culture
             experiments and computes specific kinetic rates using trapezoid integration.
-            It supports both <span class="tag-batch">batch</span>
-            and <span class="tag-fedbatch">fed-batch</span> modes through the optional
-            <code>is_post_feed</code> flag, and automatically selects between two
-            calculation scenarios depending on whether culture volume data are available:
+            Two culture modes are available — selected by the user before analysis:
           </p>
           <ul>
             <li>
-              <span class="badge bg-info">Variable volume</span>
-              — mass-balance approach using <code>Vol_mL</code>; rates normalized by
-              ITVC (Integral Total Viable Cells).
+              <span class="tag-batch">Lote</span>
+              — concentration-based throughout. Rates normalized by
+              IVCD (Integral Viable Cell Density). Default mode; does not require
+              <code>Vol_mL</code>.
             </li>
             <li>
-              <span class="badge bg-warning">Constant volume</span>
-              — concentration-based approach; rates normalized by
-              IVCD (Integral Viable Cell Density). Used when <code>Vol_mL</code> is
-              absent or the <em>Variable volume</em> checkbox is disabled.
+              <span class="tag-fedbatch">Lote alimentado</span>
+              — hybrid approach. Concentration-based during the initial batch phase
+              (before the first feed event); mass-balance from the first feed event
+              onwards, using <code>Vol_mL</code> and <code>is_post_feed</code>.
+              Rates in the fed-batch phase are normalized by
+              ITVC (Integral Total Viable Cells).
             </li>
           </ul>
 
@@ -789,8 +789,11 @@
           </p>
           <p>
             All other transitions — including post-feed → next pre-feed — are used
-            normally, because the volume accounting ($S \times V$) in the mass balance
-            corrects for any remaining dilution effect.
+            normally. In <span class="tag-fedbatch">Lote alimentado</span> mode,
+            the mass-balance approach ($M = C \times V$) accounts for any remaining
+            dilution once the fed-batch phase has started. In
+            <span class="tag-batch">Lote</span> mode, all transitions use
+            concentration-based calculations regardless of volume.
           </p>
 
           <!-- 4. Kinetic calculations -->
@@ -817,11 +820,13 @@
             actively dividing. VCD is independent of volume changes.
           </p>
 
-          <h6>4.2 Constant-volume scenario — concentration-based calculations</h6>
+          <h6>4.2 Concentration-based calculations — Lote mode and batch phase of Lote alimentado</h6>
           <p>
-            When the culture volume does not change significantly between timepoints
-            (or when <code>Vol_mL</code> is not provided), nutrient consumption and
-            metabolite production are tracked directly from concentration changes.
+            Used for <strong>all</strong> intervals in <span class="tag-batch">Lote</span>
+            mode, and for intervals <em>before the first feed event</em> in
+            <span class="tag-fedbatch">Lote alimentado</span> mode. During this phase the
+            culture volume only decreases due to sampling, so concentration changes are a
+            faithful proxy for cellular activity. No volume data are needed.
           </p>
 
           <h6 style="font-weight:400;color:var(--md-text-secondary);margin-left:16px;">4.2.1 Integral Viable Cell Density (IVCD)</h6>
@@ -865,13 +870,16 @@
           </div>
           <p>Computed only when the denominator (substrate consumed) is positive.</p>
 
-          <h6>4.3 Variable-volume scenario — mass-balance calculations</h6>
+          <h6>4.3 Mass-balance calculations — fed-batch phase of Lote alimentado</h6>
           <p>
-            When culture volume changes between timepoints — due to sampling, evaporation,
-            or medium addition in fed-batch — measuring concentration alone is misleading.
-            A drop in glucose concentration could reflect cellular consumption <em>or</em>
-            simple dilution from a feed. To isolate the biological signal, all calculations
-            migrate to <strong>total masses and total cell counts</strong> inside the reactor.
+            Used in <span class="tag-fedbatch">Lote alimentado</span> mode
+            <strong>from the first feed event onwards</strong> (i.e. from the first interval
+            that starts at a row where <code>is_post_feed = TRUE</code>).
+            Once feeding begins, a bolus of concentrated medium dilutes metabolites and
+            increases the working volume. A raw concentration drop in glucose could reflect
+            cellular consumption <em>or</em> simple dilution from the feed. To isolate the
+            biological signal, calculations migrate to
+            <strong>total masses and total cell counts</strong> inside the reactor.
           </p>
 
           <h6 style="font-weight:400;color:var(--md-text-secondary);margin-left:16px;">4.3.1 Total viable cells and ITVC</h6>
@@ -931,69 +939,92 @@
             the defined window.
           </p>
 
-          <!-- 6. Volume handling -->
-          <h5>6. Volume handling: constant vs variable volume</h5>
+          <!-- 6. Calculation modes summary -->
+          <h5>6. Calculation modes summary</h5>
+
+          <p>
+            The mode is selected by the user in the <strong>Culture mode</strong> selector
+            before running the analysis. The table below summarises which formula applies
+            to each interval depending on the mode and the culture phase.
+          </p>
 
           <div class="table-responsive mb-3">
             <table class="table table-sm table-bordered align-middle">
               <thead class="table-light">
                 <tr>
-                  <th>Scenario</th>
-                  <th>Condition</th>
+                  <th>Mode</th>
+                  <th>Phase / condition</th>
                   <th>Normalizer</th>
                   <th>Rate formula</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><span class="badge bg-info">Variable volume</span></td>
-                  <td><code>Vol_mL</code> present + checkbox on</td>
-                  <td>ITVC (cells·h)</td>
-                  <td>$q_S = \Delta(S \cdot V)\,/\,\Delta t\,/\,\Delta ITVC$</td>
+                  <td rowspan="1"><span class="tag-batch">Lote</span></td>
+                  <td>All intervals</td>
+                  <td>IVCD (cells·h/mL)</td>
+                  <td>$q_i = \Delta C_i\,/\,\Delta IVCD$</td>
                 </tr>
                 <tr>
-                  <td><span class="badge bg-warning">Constant volume</span></td>
-                  <td><code>Vol_mL</code> absent or checkbox off</td>
+                  <td rowspan="2"><span class="tag-fedbatch">Lote alimentado</span></td>
+                  <td>Before first feed event (<code>is_post_feed</code> still <code>FALSE</code>)</td>
                   <td>IVCD (cells·h/mL)</td>
-                  <td>$q_S = \Delta C_S\,/\,\Delta t\,/\,\Delta IVCD$</td>
+                  <td>$q_i = \Delta C_i\,/\,\Delta IVCD$</td>
+                </tr>
+                <tr>
+                  <td>From first feed event onwards (interval starts at <code>is_post_feed = TRUE</code>)</td>
+                  <td>ITVC (cells·h)</td>
+                  <td>$q_i = \Delta M_i\,/\,\Delta ITVC$</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <h6>6.1 Variable-volume scenario (mass-balance)</h6>
-          <div class="eq-block">$$M_S = C_S \times V \quad [\text{g or mmol}]$$</div>
-          <div class="eq-block">$$q_S = \frac{M_{S,1} - M_{S,2}}{\Delta ITVC}$$</div>
-          <div class="eq-block">
-            $$\Delta ITVC = \frac{TC_1 + TC_2}{2} \cdot \Delta t
-            \quad TC = VCD \times V \quad [\text{cells·h}]$$
-          </div>
-
-          <h6>6.2 Constant-volume scenario (concentration-based)</h6>
-          <div class="eq-block">$$q_S = \frac{C_{S,1} - C_{S,2}}{\Delta IVCD}$$</div>
-          <div class="eq-block">
-            $$\Delta IVCD = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t
+          <h6>6.1 Lote mode — concentration-based (all intervals)</h6>
+          <div class="eq-block">$$q_i = \frac{\Delta C_i}{\Delta IVCD}
+            \quad \Delta IVCD = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t
             \quad [\text{cells·h/mL}]$$
           </div>
 
-          <h6>6.3 Growth rate μ — always VCD-based</h6>
+          <h6>6.2 Lote alimentado — batch phase (concentration-based)</h6>
+          <p style="font-size:13px;color:var(--md-text-secondary);">
+            Identical to Lote mode. Applied to every interval before the first
+            <code>is_post_feed = TRUE</code> row in each Clone × Replicate group.
+          </p>
+
+          <h6>6.3 Lote alimentado — fed-batch phase (mass-balance)</h6>
+          <div class="eq-block">
+            $$M_i = C_i \times V \quad [\text{g or mmol}]$$
+          </div>
+          <div class="eq-block">
+            $$q_i = \frac{\Delta M_i}{\Delta ITVC}
+            \quad \Delta ITVC = \frac{TC_1 + TC_2}{2} \cdot \Delta t
+            \quad TC = VCD \times V \quad [\text{cells·h}]$$
+          </div>
+          <p style="font-size:13px;color:var(--md-text-secondary);">
+            Applied from the first feed event onwards. Feed intervals
+            (<code>FALSE → TRUE</code> at the same <code>t_hr</code>) are always
+            skipped — they reflect medium addition, not cellular activity.
+          </p>
+
+          <h6>6.4 Growth rate μ — always VCD-based, both modes</h6>
           <div class="eq-block">
             $$\mu = \frac{\ln(VCD_2 / VCD_1)}{\Delta t} \quad [\text{h}^{-1}]$$
           </div>
 
-          <h6>6.4 Choosing the right scenario</h6>
+          <h6>6.5 Choosing the right mode</h6>
           <ul>
             <li>
-              <strong>Use variable volume</strong> (default, if <code>Vol_mL</code> is present)
-              when running <span class="tag-fedbatch">fed-batch</span> cultures with
-              significant volume changes between feeds.
+              <strong>Lote</strong> — use for batch cultures, or any dataset where
+              volume changes are caused only by sampling (not by feed additions).
+              Also the correct choice when comparing against concentration-based
+              literature values.
             </li>
             <li>
-              <strong>Force constant volume</strong> (uncheck the checkbox) when comparing
-              with literature or previous concentration-based datasets.
-            </li>
-            <li>
-              If <code>Vol_mL</code> is absent from the CSV, constant-volume is used automatically.
+              <strong>Lote alimentado</strong> — use when the culture received one or
+              more bolus feeds. Requires <code>Vol_mL</code> and <code>is_post_feed</code>
+              in the CSV. The engine detects the first feed event automatically per
+              Clone × Replicate and switches methods at that point.
             </li>
           </ul>
 

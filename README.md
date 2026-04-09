@@ -85,7 +85,7 @@ Clonalyzer 2 computes specific rates interval by interval between consecutive ti
 
 ### Specific growth rate
 
-μ is always calculated from viable cell density, regardless of the volume scenario:
+μ is always calculated from viable cell density, regardless of mode:
 
 $$\mu = \frac{\ln(VCD_2 / VCD_1)}{\Delta t} \quad \text{[h}^{-1}\text{]}$$
 
@@ -93,13 +93,11 @@ $$\mu = \frac{\ln(VCD_2 / VCD_1)}{\Delta t} \quad \text{[h}^{-1}\text{]}$$
 
 ---
 
-### Scenario A — Constant volume (concentration-based)
+### Lote mode — concentration-based (default)
 
-Used in **Lote** mode or when `Vol_mL` is absent. Rates are normalized by the **Integral Viable Cell Density (IVCD)**:
+All intervals use the **Integral Viable Cell Density (IVCD)** as normalizer. No volume data are needed.
 
 $$\Delta IVCD = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t \quad \left[\frac{\text{cells} \cdot \text{h}}{\text{mL}}\right]$$
-
-The specific rate of metabolite $i$ is the concentration change per unit of biomass exposure:
 
 $$q_i = \frac{\Delta C_i}{\Delta IVCD} \quad \text{[pg or pmol / cell / day]}$$
 
@@ -117,23 +115,27 @@ $$Y_{Lac/Glc} = \frac{Lac_2 - Lac_1}{Glc_1 - Glc_2} \quad Y_{Glu/Gln} = \frac{Gl
 
 ---
 
-### Scenario B — Variable volume (mass-balance)
+### Lote alimentado mode — hybrid (concentration → mass balance)
 
-Used in **Lote alimentado** mode when `Vol_mL` is present. Volume changes between timepoints — due to sampling, evaporation, or feeding — are accounted for explicitly via a mass balance.
+Requires `Vol_mL` and `is_post_feed`. The engine applies a **two-phase strategy per Clone × Replicate**, detected automatically from `is_post_feed`:
 
-**Total viable cells** in the reactor at each timepoint:
+**Phase 1 — batch phase (before first feed event)**
+
+Before the first row where `is_post_feed = TRUE`, the culture has not yet received any feed addition. Volume only decreases due to sampling, so concentration changes are a faithful proxy for cellular activity. **Concentration-based calculations are used** — identical to Lote mode.
+
+**Phase 2 — fed-batch phase (from first feed event onwards)**
+
+Once feeding begins, adding a bolus of concentrated medium dilutes metabolites and increases the working volume. A raw concentration drop in glucose could reflect cellular consumption, feed dilution, or both. To isolate the biological signal, all calculations switch to **total masses and total cell counts** inside the reactor.
+
+**Total viable cells and ITVC:**
 
 $$TC = VCD \times V \quad \text{[cells]}$$
 
-**Integral Total Viable Cells (ITVC):**
-
 $$\Delta ITVC = \frac{TC_1 + TC_2}{2} \cdot \Delta t \quad \text{[cells} \cdot \text{h]}$$
 
-**Total mass** of each metabolite in the reactor:
+**Total metabolite mass and specific rates:**
 
 $$M_i = C_i \times \frac{V}{1000} \quad \text{[g or mmol]}$$
-
-The specific rate is the change in total mass normalized by ITVC:
 
 $$q_i = \frac{\Delta M_i}{\Delta ITVC} \quad \text{[pg or pmol / cell / day]}$$
 
@@ -145,20 +147,11 @@ $$q_i = \frac{\Delta M_i}{\Delta ITVC} \quad \text{[pg or pmol / cell / day]}$$
 | qGln | $M_{Gln,1} - M_{Gln,2}$ | + consumed, reported as pmol/cell/day |
 | qGlu | $M_{Glu,2} - M_{Glu,1}$ | + produced, reported as pmol/cell/day |
 
-Metabolic yields are the ratio of mass changes:
+Metabolic yields use mass changes in the same way:
 
 $$Y_{Lac/Glc} = \frac{M_{Lac,2} - M_{Lac,1}}{M_{Glc,1} - M_{Glc,2}} \quad Y_{Glu/Gln} = \frac{M_{Glu,2} - M_{Glu,1}}{M_{Gln,1} - M_{Gln,2}}$$
 
----
-
-### Fed-batch hybrid correction
-
-In **Lote alimentado** mode the engine applies a **two-phase strategy per Clone × Replicate**:
-
-1. **Before the first feed event** (`is_post_feed` is always `FALSE`): the culture behaves as a batch — concentration-based calculations are used because volume changes only reflect sampling, not dilution from feed addition.
-2. **From the first feed event onwards** (`is_post_feed` transitions to `TRUE`): the mass-balance approach is activated to correctly decouple feed dilution from cellular activity.
-
-Intervals where `is_post_feed` transitions from `FALSE` to `TRUE` (the actual feed addition point) are always excluded from rate calculations, as the apparent concentration change reflects medium addition rather than cellular metabolism.
+**Feed events are always excluded:** intervals where `is_post_feed` transitions `FALSE → TRUE` are skipped entirely. The apparent concentration change at those points reflects medium addition, not cellular metabolism.
 
 ---
 
