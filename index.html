@@ -99,14 +99,115 @@
 
       <!-- CSV format reference (collapsible) -->
       <div id="csv-spec" class="collapse mb-4">
-        <div class="md-code-block">
-          <strong>Row 1</strong> – Human-readable labels (any text, ignored)<br>
-          <strong>Row 2</strong> – Column names:
-          <code>t_hr, Clone, Rep, is_post_feed, VCD, DCD, Viab_pct, rP_mg_L,
-          Glc_g_L, Lac_g_L, Gln_mM, Glu_mM, Vol_mL</code><br>
-          Optional: <code>GFP_mean, GFP_std, TMRM_mean, TMRM_std,
-          Bodipy_mean, Bodipy_std, CellROX_mean, CellROX_std</code><br>
-          <strong>Row 3+</strong> – Numeric data
+        <div class="csv-preview-wrap">
+
+          <!-- Legend -->
+          <div class="csv-legend">
+            <span class="csv-legend-item">
+              <span class="csv-legend-swatch csv-swatch-req"></span>Columnas requeridas
+            </span>
+            <span class="csv-legend-item">
+              <span class="csv-legend-swatch csv-swatch-opt"></span>Columnas opcionales (citometría)
+            </span>
+            <span class="csv-legend-item">
+              <span class="csv-legend-swatch csv-swatch-ign"></span>Fila ignorada por el analizador
+            </span>
+          </div>
+
+          <!-- Scrollable table -->
+          <div class="csv-scroll">
+            <table class="csv-table">
+              <thead>
+                <tr>
+                  <th class="csv-th-rownum"></th>
+                  <th class="csv-th-req">t_hr</th>
+                  <th class="csv-th-req">Clone</th>
+                  <th class="csv-th-req">Rep</th>
+                  <th class="csv-th-req">is_post_feed</th>
+                  <th class="csv-th-req">VCD</th>
+                  <th class="csv-th-req">DCD</th>
+                  <th class="csv-th-req">Viab_pct</th>
+                  <th class="csv-th-req">rP_mg_L</th>
+                  <th class="csv-th-req">Glc_g_L</th>
+                  <th class="csv-th-req">Lac_g_L</th>
+                  <th class="csv-th-req">Gln_mM</th>
+                  <th class="csv-th-req">Glu_mM</th>
+                  <th class="csv-th-req">Vol_mL</th>
+                  <th class="csv-th-opt">GFP_mean</th>
+                  <th class="csv-th-opt">GFP_std</th>
+                  <th class="csv-th-opt">TMRM_mean</th>
+                  <th class="csv-th-opt">TMRM_std</th>
+                  <th class="csv-th-opt">Bodipy_mean</th>
+                  <th class="csv-th-opt">Bodipy_std</th>
+                  <th class="csv-th-opt">CellROX_mean</th>
+                  <th class="csv-th-opt">CellROX_std</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Row 1: human-readable labels (ignored) -->
+                <tr class="csv-tr-ignored">
+                  <td class="csv-td-rownum">1</td>
+                  <td>Tiempo (h)</td><td>Clon</td><td>Réplica</td><td>Post-feed</td>
+                  <td>VCD (cel/mL)</td><td>DCD (cel/mL)</td><td>Viabilidad %</td><td>Producto (mg/L)</td>
+                  <td>Glucosa (g/L)</td><td>Lactato (g/L)</td><td>Glutamina (mM)</td><td>Glutamato (mM)</td><td>Volumen (mL)</td>
+                  <td class="csv-td-opt">GFP media</td><td class="csv-td-opt">GFP DE</td>
+                  <td class="csv-td-opt">TMRM media</td><td class="csv-td-opt">TMRM DE</td>
+                  <td class="csv-td-opt">BODIPY media</td><td class="csv-td-opt">BODIPY DE</td>
+                  <td class="csv-td-opt">CellROX media</td><td class="csv-td-opt">CellROX DE</td>
+                </tr>
+                <!-- Row 2: exact column names (what the analyzer reads) -->
+                <tr class="csv-tr-colnames">
+                  <td class="csv-td-rownum">2</td>
+                  <td>t_hr</td><td>Clone</td><td>Rep</td><td>is_post_feed</td>
+                  <td>VCD</td><td>DCD</td><td>Viab_pct</td><td>rP_mg_L</td>
+                  <td>Glc_g_L</td><td>Lac_g_L</td><td>Gln_mM</td><td>Glu_mM</td><td>Vol_mL</td>
+                  <td class="csv-td-opt">GFP_mean</td><td class="csv-td-opt">GFP_std</td>
+                  <td class="csv-td-opt">TMRM_mean</td><td class="csv-td-opt">TMRM_std</td>
+                  <td class="csv-td-opt">Bodipy_mean</td><td class="csv-td-opt">Bodipy_std</td>
+                  <td class="csv-td-opt">CellROX_mean</td><td class="csv-td-opt">CellROX_std</td>
+                </tr>
+                <!-- Rows 3+: numeric data -->
+                <tr class="csv-tr-data">
+                  <td class="csv-td-rownum">3</td>
+                  <td>0</td><td>CHO-K1</td><td>1</td><td>FALSE</td>
+                  <td>5.0E5</td><td>1.0E4</td><td>98.2</td><td>0</td>
+                  <td>4.50</td><td>0.20</td><td>4.0</td><td>0.5</td><td>50</td>
+                  <td class="csv-td-opt">1250</td><td class="csv-td-opt">120</td>
+                  <td class="csv-td-opt">3400</td><td class="csv-td-opt">280</td>
+                  <td class="csv-td-opt">890</td><td class="csv-td-opt">95</td>
+                  <td class="csv-td-opt">210</td><td class="csv-td-opt">45</td>
+                </tr>
+                <tr class="csv-tr-data">
+                  <td class="csv-td-rownum">4</td>
+                  <td>24</td><td>CHO-K1</td><td>1</td><td>TRUE</td>
+                  <td>2.1E6</td><td>5.0E4</td><td>97.1</td><td>25</td>
+                  <td>3.20</td><td>0.85</td><td>3.1</td><td>1.2</td><td>55</td>
+                  <td class="csv-td-opt">3400</td><td class="csv-td-opt">280</td>
+                  <td class="csv-td-opt">5200</td><td class="csv-td-opt">410</td>
+                  <td class="csv-td-opt">1450</td><td class="csv-td-opt">130</td>
+                  <td class="csv-td-opt">380</td><td class="csv-td-opt">62</td>
+                </tr>
+                <tr class="csv-tr-more">
+                  <td class="csv-td-rownum">⋮</td>
+                  <td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td>
+                  <td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td>
+                  <td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td>
+                  <td class="csv-td-opt">⋮</td><td class="csv-td-opt">⋮</td>
+                  <td class="csv-td-opt">⋮</td><td class="csv-td-opt">⋮</td>
+                  <td class="csv-td-opt">⋮</td><td class="csv-td-opt">⋮</td>
+                  <td class="csv-td-opt">⋮</td><td class="csv-td-opt">⋮</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Footnotes -->
+          <div class="csv-footnotes">
+            <span><strong>Fila 1:</strong> rótulos descriptivos — cualquier texto, el analizador la ignora.</span>
+            <span><strong>Fila 2:</strong> nombres de columna exactos (case-sensitive) — el analizador los busca aquí.</span>
+            <span><strong>Filas 3+:</strong> datos numéricos. Añade tantas filas como puntos de muestreo tengas.</span>
+          </div>
+
         </div>
       </div>
 
