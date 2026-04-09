@@ -9,10 +9,11 @@
 // ── State ──────────────────────────────────────────────────────────────────────
 let pyodide = null;
 let results = null;
+let selectedFile = null;
 
 // ── DOM refs (populated after DOMContentLoaded) ────────────────────────────────
 let elInitBar, elInitMsg, elInitSection;
-let elUploadSection, elDropZone, elFileInput;
+let elUploadSection, elDropZone, elFileInput, elAnalyzeBtn, elAnalyzeHint;
 let elProcessSection, elProcessBar, elProcessMsg;
 let elResultsSection;
 let elExpPhaseStartInput, elExpPhaseInput, elSkipFirstRow;
@@ -35,6 +36,8 @@ document.addEventListener("DOMContentLoaded", () => {
     elUploadSection  = document.getElementById("upload-section");
     elDropZone       = document.getElementById("drop-zone");
     elFileInput      = document.getElementById("file-input");
+    elAnalyzeBtn     = document.getElementById("analyze-btn");
+    elAnalyzeHint    = document.getElementById("analyze-hint");
     elProcessSection = document.getElementById("process-section");
     elProcessBar     = document.getElementById("process-bar");
     elProcessMsg     = document.getElementById("process-msg");
@@ -54,6 +57,10 @@ document.addEventListener("DOMContentLoaded", () => {
     elFluorTMRM          = document.getElementById("fluor-tmrm");
     elFluorBODIPY        = document.getElementById("fluor-bodipy");
     elFluorCellROX       = document.getElementById("fluor-cellrox");
+
+    elAnalyzeBtn.addEventListener("click", () => {
+        if (selectedFile) handleFile(selectedFile);
+    });
 
     setupDropZone();
     setupTabResizeListener();
@@ -120,12 +127,32 @@ function setupDropZone() {
         e.preventDefault();
         elDropZone.classList.remove("drag-over");
         const file = e.dataTransfer.files[0];
-        if (file) handleFile(file);
+        if (file) selectFile(file);
     });
     elDropZone.addEventListener("click", () => elFileInput.click());
     elFileInput.addEventListener("change", e => {
-        if (e.target.files[0]) handleFile(e.target.files[0]);
+        if (e.target.files[0]) selectFile(e.target.files[0]);
     });
+}
+
+function selectFile(file) {
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+        alert("Please select a CSV file.");
+        return;
+    }
+    selectedFile = file;
+
+    // Update drop zone to file-selected state
+    elDropZone.querySelector(".dz-default-state").classList.add("d-none");
+    const fileState = elDropZone.querySelector(".dz-file-state");
+    fileState.classList.remove("d-none");
+    fileState.querySelector(".dz-filename").textContent = file.name;
+    elDropZone.classList.add("dz-ready");
+
+    // Enable Analyze button
+    elAnalyzeBtn.disabled = false;
+    elAnalyzeHint.textContent = `Ready · ${file.name}`;
+    elAnalyzeHint.classList.add("analyze-hint-ready");
 }
 
 // ── Resize Plotly charts when a tab becomes visible ───────────────────────────

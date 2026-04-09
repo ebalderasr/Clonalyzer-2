@@ -88,12 +88,43 @@
     <!-- ── Upload ────────────────────────────────────────────────────────────── -->
     <div id="upload-section" class="md-card d-none">
 
-      <h2 class="md-card-title">Upload your data</h2>
-      <p class="md-card-subtitle">
-        CSV with two header rows (row 1 = labels, row 2 = column names).
-        <a href="#csv-spec" data-bs-toggle="collapse"
-           style="color:var(--md-primary);text-decoration:none;font-weight:500;">
-          See format ▾
+      <h2 class="md-card-title">Set up your analysis</h2>
+      <p class="md-card-subtitle">Upload your CSV file, configure the settings below, then click <strong>Analyze</strong>.</p>
+
+      <!-- ① Drop zone -->
+      <div id="drop-zone" class="md-drop-zone">
+        <!-- Default state -->
+        <div class="dz-default-state">
+          <div class="md-upload-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <p class="md-drop-title">Drag &amp; drop your CSV here</p>
+          <p class="md-drop-sub">or click to browse files</p>
+        </div>
+        <!-- File selected state -->
+        <div class="dz-file-state d-none">
+          <div class="md-upload-icon dz-icon-ready">
+            <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <polyline points="9 15 11 17 15 13"/>
+            </svg>
+          </div>
+          <p class="md-drop-title dz-filename">file.csv</p>
+          <p class="md-drop-sub">Click to change file</p>
+        </div>
+        <input id="file-input" type="file" accept=".csv" class="d-none" />
+      </div>
+
+      <!-- Format hint link -->
+      <p class="csv-hint-link">
+        Not sure about the format?
+        <a href="#csv-spec" data-bs-toggle="collapse" style="color:var(--md-primary);text-decoration:none;font-weight:500;">
+          View CSV template ▾
         </a>
       </p>
 
@@ -104,13 +135,13 @@
           <!-- Legend -->
           <div class="csv-legend">
             <span class="csv-legend-item">
-              <span class="csv-legend-swatch csv-swatch-req"></span>Columnas requeridas
+              <span class="csv-legend-swatch csv-swatch-req"></span>Required columns
             </span>
             <span class="csv-legend-item">
-              <span class="csv-legend-swatch csv-swatch-opt"></span>Columnas opcionales (citometría)
+              <span class="csv-legend-swatch csv-swatch-opt"></span>Optional columns (flow cytometry)
             </span>
             <span class="csv-legend-item">
-              <span class="csv-legend-swatch csv-swatch-ign"></span>Fila ignorada por el analizador
+              <span class="csv-legend-swatch csv-swatch-ign"></span>Row ignored by the analyzer
             </span>
           </div>
 
@@ -147,13 +178,13 @@
                 <!-- Row 1: human-readable labels (ignored) -->
                 <tr class="csv-tr-ignored">
                   <td class="csv-td-rownum">1</td>
-                  <td>Tiempo (h)</td><td>Clon</td><td>Réplica</td><td>Post-feed</td>
-                  <td>VCD (cel/mL)</td><td>DCD (cel/mL)</td><td>Viabilidad %</td><td>Producto (mg/L)</td>
-                  <td>Glucosa (g/L)</td><td>Lactato (g/L)</td><td>Glutamina (mM)</td><td>Glutamato (mM)</td><td>Volumen (mL)</td>
-                  <td class="csv-td-opt">GFP media</td><td class="csv-td-opt">GFP DE</td>
-                  <td class="csv-td-opt">TMRM media</td><td class="csv-td-opt">TMRM DE</td>
-                  <td class="csv-td-opt">BODIPY media</td><td class="csv-td-opt">BODIPY DE</td>
-                  <td class="csv-td-opt">CellROX media</td><td class="csv-td-opt">CellROX DE</td>
+                  <td>Time (h)</td><td>Clone</td><td>Replicate</td><td>Post-feed?</td>
+                  <td>VCD (cells/mL)</td><td>DCD (cells/mL)</td><td>Viability %</td><td>Product (mg/L)</td>
+                  <td>Glucose (g/L)</td><td>Lactate (g/L)</td><td>Glutamine (mM)</td><td>Glutamate (mM)</td><td>Volume (mL)</td>
+                  <td class="csv-td-opt">GFP mean</td><td class="csv-td-opt">GFP SD</td>
+                  <td class="csv-td-opt">TMRM mean</td><td class="csv-td-opt">TMRM SD</td>
+                  <td class="csv-td-opt">BODIPY mean</td><td class="csv-td-opt">BODIPY SD</td>
+                  <td class="csv-td-opt">CellROX mean</td><td class="csv-td-opt">CellROX SD</td>
                 </tr>
                 <!-- Row 2: exact column names (what the analyzer reads) -->
                 <tr class="csv-tr-colnames">
@@ -203,28 +234,39 @@
 
           <!-- Footnotes -->
           <div class="csv-footnotes">
-            <span><strong>Fila 1:</strong> rótulos descriptivos — cualquier texto, el analizador la ignora.</span>
-            <span><strong>Fila 2:</strong> nombres de columna exactos (case-sensitive) — el analizador los busca aquí.</span>
-            <span><strong>Filas 3+:</strong> datos numéricos. Añade tantas filas como puntos de muestreo tengas.</span>
+            <span><strong>Row 1:</strong> descriptive labels — any text, ignored by the analyzer.</span>
+            <span><strong>Row 2:</strong> exact column names (case-sensitive) — the analyzer reads these.</span>
+            <span><strong>Rows 3+:</strong> numeric data. Add as many rows as sampling time points.</span>
           </div>
 
         </div>
       </div>
 
-      <!-- Settings group: kinetics -->
+      <!-- ② File format -->
+      <div class="settings-group">
+        <div class="settings-group-title">File format</div>
+        <div class="form-check" style="margin:0;">
+          <input class="form-check-input" type="checkbox" id="skip-first-row" checked />
+          <label class="form-check-label" for="skip-first-row">
+            First row contains descriptive labels (not column names)
+            <span style="color:var(--md-text-secondary);display:block;font-size:11.5px;margin-top:2px;">Uncheck if your CSV starts directly with column names on the first row.</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- ③ Kinetics window -->
       <div class="settings-group">
         <div class="settings-group-title">Kinetics window</div>
         <p class="settings-group-context">
-          Define el intervalo de tiempo en que las células están en <strong>fase exponencial</strong>.
-          Solo los puntos dentro de este rango se usan para estimar μ y las tasas específicas de consumo/producción (q).
+          Define the time interval of <strong>exponential growth</strong>. Only data points within this range are used to estimate μ and specific consumption/production rates (q).
         </p>
         <div class="md-settings-row" style="margin-bottom:0;">
-          <label for="exp-phase-start">Inicio:</label>
+          <label for="exp-phase-start">Start:</label>
           <input id="exp-phase-start"
                  type="number" class="form-control form-control-sm"
                  value="0" min="0" max="9999" step="1" />
           <span style="font-size:13px;color:var(--md-text-secondary);">h &nbsp;→&nbsp;</span>
-          <label for="exp-phase-end">Fin:</label>
+          <label for="exp-phase-end">End:</label>
           <input id="exp-phase-end"
                  type="number" class="form-control form-control-sm"
                  value="96" min="1" max="9999" step="1" />
@@ -232,35 +274,25 @@
         </div>
       </div>
 
-      <!-- Settings group: data options -->
+      <!-- ④ Culture mode -->
       <div class="settings-group">
-        <div class="settings-group-title">Data options</div>
-        <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="skip-first-row" checked />
-          <label class="form-check-label" for="skip-first-row">
-            Skip first row
-            <span style="color:var(--md-text-secondary);">(uncheck if your CSV has no metadata row)</span>
-          </label>
-        </div>
-
-        <!-- Culture mode selector (MD3 radio cards) -->
-        <div class="settings-group-label">Modo de cultivo</div>
+        <div class="settings-group-title">Culture mode</div>
         <div class="culture-mode-selector">
 
           <label class="culture-mode-card selected" for="mode-batch">
             <input type="radio" id="mode-batch" name="culture-mode" value="batch" checked />
             <span class="material-icons culture-mode-icon">science</span>
             <div class="culture-mode-info">
-              <div class="culture-mode-title">Lote <span class="culture-mode-badge">Batch</span></div>
-              <div class="culture-mode-subtitle">Cultivo cerrado · sin alimentaciones de medio</div>
+              <div class="culture-mode-title">Batch</div>
+              <div class="culture-mode-subtitle">Closed culture · no medium additions</div>
               <div class="culture-mode-desc">
-                Todos los nutrientes se suministran al inicio del cultivo. No se añade medio durante el proceso, por lo que el volumen permanece esencialmente constante.
+                All nutrients are provided at the start of the culture. No medium is added during the process, so the culture volume remains essentially constant.
                 <br><br>
-                El analizador calcula μ y las tasas específicas (q) directamente a partir de los <strong>cambios de concentración</strong> entre muestras consecutivas.
+                The analyzer calculates μ and specific rates (q) directly from <strong>changes in concentration</strong> between consecutive samples.
               </div>
               <div class="culture-mode-hint">
                 <span class="material-icons" style="font-size:13px;vertical-align:-2px;color:var(--md-tertiary);">check_circle</span>
-                No requiere <code>Vol_mL</code> ni <code>is_post_feed</code>
+                Does not require <code>Vol_mL</code> or <code>is_post_feed</code>
               </div>
             </div>
           </label>
@@ -269,22 +301,22 @@
             <input type="radio" id="mode-fedbatch" name="culture-mode" value="fedbatch" />
             <span class="material-icons culture-mode-icon">water_drop</span>
             <div class="culture-mode-info">
-              <div class="culture-mode-title">Lote alimentado <span class="culture-mode-badge">Fed-batch</span></div>
-              <div class="culture-mode-subtitle">Cultivo con alimentaciones de medio concentrado</div>
+              <div class="culture-mode-title">Fed-batch</div>
+              <div class="culture-mode-subtitle">Culture with concentrated medium additions</div>
               <div class="culture-mode-desc">
-                Se añaden soluciones concentradas (feeds) en momentos definidos del proceso, incrementando el volumen del cultivo progresivamente.
+                Concentrated solutions (feeds) are added at defined time points, progressively increasing the culture volume.
                 <br><br>
-                Para compensar el efecto de dilución de las alimentaciones, el analizador usa <strong>balance de masas</strong> (moles&nbsp;=&nbsp;concentración&nbsp;×&nbsp;volumen): antes de la primera alimentación trabaja con concentraciones; a partir de ella, con moles.
+                To correct for the dilution effect of feeds, the analyzer uses <strong>mass balances</strong> (moles&nbsp;=&nbsp;concentration&nbsp;×&nbsp;volume): before the first feed it uses concentrations; from the first feed onward, it uses moles.
               </div>
               <div class="culture-mode-reqs">
-                <div class="culture-mode-req-label">Columnas requeridas:</div>
+                <div class="culture-mode-req-label">Required columns:</div>
                 <div class="culture-mode-req-row">
                   <code>Vol_mL</code>
-                  <span>Volumen del cultivo (mL) en cada punto de muestreo</span>
+                  <span>Culture volume (mL) at each sampling point</span>
                 </div>
                 <div class="culture-mode-req-row">
                   <code>is_post_feed</code>
-                  <span><strong>FALSE</strong> = muestra tomada antes de una alimentación · <strong>TRUE</strong> = muestra tomada justo después de añadir el feed</span>
+                  <span><strong>FALSE</strong> = sample taken before a feed · <strong>TRUE</strong> = sample taken immediately after adding the feed</span>
                 </div>
               </div>
             </div>
@@ -293,12 +325,12 @@
         </div>
       </div>
 
-      <!-- Settings group: fluorescence -->
+      <!-- ⑤ Flow cytometry channels -->
       <div class="settings-group">
-        <div class="settings-group-title">Fluorescence channels</div>
+        <div class="settings-group-title">Flow cytometry channels</div>
         <p class="settings-group-context">
-          Datos opcionales de <strong>citometría de flujo</strong>. Activa únicamente los canales presentes en tu archivo CSV.
-          Si tu experimento no incluyó citometría, desactiva todos los canales para evitar errores de lectura.
+          Optional <strong>flow cytometry</strong> data. Enable only the channels present in your CSV file.
+          If your experiment did not include flow cytometry, uncheck all channels to avoid read errors.
         </p>
         <div class="fluor-grid">
           <div class="fluor-row">
@@ -306,7 +338,7 @@
             <span class="fluor-dot" style="background:#22c55e;"></span>
             <div class="fluor-text">
               <label class="fluor-name" for="fluor-gfp">GFP</label>
-              <span class="fluor-desc">Proteína fluorescente verde · expresión del transgén / productividad</span>
+              <span class="fluor-desc">Green fluorescent protein · transgene expression / productivity reporter</span>
             </div>
           </div>
           <div class="fluor-row">
@@ -314,7 +346,7 @@
             <span class="fluor-dot" style="background:#f97316;"></span>
             <div class="fluor-text">
               <label class="fluor-name" for="fluor-tmrm">TMRM</label>
-              <span class="fluor-desc">Potencial de membrana mitocondrial · salud y metabolismo celular</span>
+              <span class="fluor-desc">Mitochondrial membrane potential · cell health and energy metabolism</span>
             </div>
           </div>
           <div class="fluor-row">
@@ -322,7 +354,7 @@
             <span class="fluor-dot" style="background:#eab308;"></span>
             <div class="fluor-text">
               <label class="fluor-name" for="fluor-bodipy">BODIPY</label>
-              <span class="fluor-desc">Contenido de lípidos intracelulares · metabolismo lipídico</span>
+              <span class="fluor-desc">Intracellular lipid content · lipid metabolism</span>
             </div>
           </div>
           <div class="fluor-row">
@@ -330,25 +362,21 @@
             <span class="fluor-dot" style="background:#ef4444;"></span>
             <div class="fluor-text">
               <label class="fluor-name" for="fluor-cellrox">CellROX</label>
-              <span class="fluor-desc">Especies reactivas de oxígeno (ROS) · estrés oxidativo</span>
+              <span class="fluor-desc">Reactive oxygen species (ROS) · oxidative stress</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Drop zone -->
-      <div id="drop-zone" class="md-drop-zone">
-        <div class="md-upload-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-        </div>
-        <p class="md-drop-title">Drag &amp; drop your CSV here</p>
-        <p class="md-drop-sub">or click to browse files</p>
-        <input id="file-input" type="file" accept=".csv" class="d-none" />
+      <!-- ⑥ Analyze button -->
+      <div class="analyze-row">
+        <button id="analyze-btn" class="btn-analyze" disabled>
+          <span class="material-icons" style="font-size:20px;">play_arrow</span>
+          Analyze data
+        </button>
+        <p id="analyze-hint" class="analyze-hint">Select a CSV file above to enable analysis.</p>
       </div>
+
     </div>
 
     <!-- ── Processing ─────────────────────────────────────────────────────────── -->
