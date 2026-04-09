@@ -2,7 +2,7 @@
 
 # Clonalyzer 2
 
-### Fed-batch kinetics analysis for CHO cell cultures
+### From raw CSV to publication-ready kinetics — in seconds, entirely in your browser
 
 <br>
 
@@ -10,7 +10,7 @@
 
 <br>
 
-[![Stack](https://img.shields.io/badge/Stack-Pyodide_·_Pandas_·_Matplotlib-4A90D9?style=for-the-badge)]()
+[![Stack](https://img.shields.io/badge/Stack-Pyodide_·_Pandas_·_Plotly-4A90D9?style=for-the-badge)]()
 [![Focus](https://img.shields.io/badge/Focus-Fed--batch_Kinetics_·_CHO-34C759?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](./LICENSE)
 [![Part of](https://img.shields.io/badge/Part_of-HostCell_Lab_Suite-5856D6?style=for-the-badge)](https://github.com/ebalderasr)
@@ -21,74 +21,61 @@
 
 ## What is Clonalyzer 2?
 
-Clonalyzer 2 is a **browser-based kinetics analysis tool** for CHO fed-batch cultures. Upload a raw measurement CSV and it computes over 20 kinetic parameters — specific rates, yields, integral cell counts — then generates publication-ready plots and packages everything into a downloadable ZIP.
+Clonalyzer 2 is a **browser-based kinetics analysis tool** for CHO fed-batch cultures. Drop a raw measurement CSV and it computes over 20 kinetic parameters — specific rates, metabolic yields, integral cell counts — then renders interactive charts and packages everything into a downloadable ZIP or a PDF report ready to paste into your lab notebook.
 
-It runs entirely in the browser through [Pyodide](https://pyodide.org), the full scientific Python stack compiled to WebAssembly. No Python environment to install, no scripts to run, no data leaves your machine.
+It runs entirely in the browser through [Pyodide](https://pyodide.org), the full scientific Python stack compiled to WebAssembly. **No installation. No scripts. No data ever leaves your machine.**
 
 ---
 
 ## Why it matters
 
-After each fed-batch run, extracting kinetic parameters from raw viability counter and metabolite analyzer data typically means hours of manual spreadsheet work — repeated for every clone and replicate. Without a dedicated tool:
+After each fed-batch run, extracting kinetic parameters from viability counter and metabolite analyzer data typically means hours of manual spreadsheet work — repeated for every clone and replicate. Without a dedicated tool:
 
 - Specific rates must be calculated interval by interval from raw concentration and volume data
 - Feed events require manual correction to avoid confounding dilution with cellular activity
 - Clone comparisons and replicate statistics are assembled by hand from separate files
 
-Clonalyzer 2 automates the entire pipeline in a single CSV drop.
+Clonalyzer 2 automates the entire pipeline in a single CSV drop. What used to take an afternoon now takes under a minute.
 
 ---
 
 ## How it works
 
-### 1. Upload
+Four steps. No command line. No configuration files.
 
-Drag and drop your CSV file or click to browse. Two layouts are accepted:
+<br>
 
-**With metadata row** *(default — toggle "Skip first row")*
-```
-Culture time (h),  Clone ID,  Biological replicate, ...   ← ignored
-t_hr,              Clone,     Rep,                  ...   ← column names
-0,                 Control,   1,                    ...   ← data
-```
+**Step 1 — Upload your data**
 
-**Without metadata row**
-```
-t_hr,  Clone,  Rep,  ...   ← column names
-0,     Control,  1,  ...   ← data
-```
+Drag your CSV onto the drop zone or click to browse. The app accepts European decimal commas and automatically detects the column layout.
 
-> European decimal commas (`1,5`) are accepted and converted automatically.
+<img src="Fig/step1.png" alt="Step 1 – Upload CSV" width="700"/>
 
-### 2. Set the exponential phase window
+<br>
 
-Define the start and end time (h) of the exponential phase. All specific rates are summarized separately for the exponential and stationary phases. Default: 0–96 h.
+**Step 2 — Set the exponential phase window**
 
-### 3. Explore results
+Define the start and end time (h) of the exponential growth phase. Specific rates (µ, q values) are summarized separately for the exponential and stationary phases. Default: 0–96 h.
 
-Results are organized across four tabbed plot families:
+<img src="Fig/step2.png" alt="Step 2 – Set kinetics window" width="700"/>
 
-| Tab | Contents |
-|---|---|
-| Scatter | Individual data points colored by clone |
-| Mean ± SD | Time-resolved profiles with error bars across biological replicates |
-| Exponential phase bars | Clone-level comparison of exponential-phase parameter means ± SD |
-| Correlations | Custom pairwise plots segmented by clone and phase |
+<br>
 
-### 4. Download
+**Step 3 — Choose your culture mode**
 
-Click **Download results (.zip)** to export all CSVs and plots:
+Select **Lote** (batch) for concentration-based calculations, or **Lote alimentado** (fed-batch) to enable the hybrid mass-balance approach that automatically switches from concentration-based to mass-balance at the first feed event.
 
-```
-clonalyzer_results.zip
-├── data_kinetics_processed.csv      ← all computed parameters, one row per sample
-├── data_exp_phase_summary.csv       ← per clone × replicate exponential-phase means
-└── plots/
-    ├── 01_scatter/
-    ├── 02_lines/
-    ├── 03_bars_exp_phase/
-    └── 04_correlations/
-```
+<img src="Fig/step3.png" alt="Step 3 – Choose culture mode" width="700"/>
+
+<br>
+
+**Step 4 — Analyze and explore**
+
+Click **Analyze data**. In seconds you get four families of interactive charts — scatter, mean ± SD, exponential-phase bar plots, and pairwise correlations. Download everything as a ZIP or generate a compact PDF report for your lab notebook.
+
+<img src="Fig/step4.png" alt="Step 4 – Results and charts" width="700"/>
+
+<br>
 
 ---
 
@@ -108,7 +95,7 @@ $$\mu = \frac{\ln(VCD_2 / VCD_1)}{\Delta t} \quad \text{[h}^{-1}\text{]}$$
 
 ### Scenario A — Constant volume (concentration-based)
 
-Used when `Vol_mL` is absent or the *Variable volume* checkbox is disabled. Rates are normalized by the **Integral Viable Cell Density (IVCD)**:
+Used in **Lote** mode or when `Vol_mL` is absent. Rates are normalized by the **Integral Viable Cell Density (IVCD)**:
 
 $$\Delta IVCD = \frac{VCD_1 + VCD_2}{2} \cdot \Delta t \quad \left[\frac{\text{cells} \cdot \text{h}}{\text{mL}}\right]$$
 
@@ -132,7 +119,7 @@ $$Y_{Lac/Glc} = \frac{Lac_2 - Lac_1}{Glc_1 - Glc_2} \quad Y_{Glu/Gln} = \frac{Gl
 
 ### Scenario B — Variable volume (mass-balance)
 
-Used when `Vol_mL` is present and the *Variable volume* checkbox is enabled. Volume changes between timepoints — due to sampling, evaporation, or feeding — are accounted for explicitly via a mass balance.
+Used in **Lote alimentado** mode when `Vol_mL` is present. Volume changes between timepoints — due to sampling, evaporation, or feeding — are accounted for explicitly via a mass balance.
 
 **Total viable cells** in the reactor at each timepoint:
 
@@ -164,9 +151,14 @@ $$Y_{Lac/Glc} = \frac{M_{Lac,2} - M_{Lac,1}}{M_{Glc,1} - M_{Glc,2}} \quad Y_{Glu
 
 ---
 
-### Fed-batch correction
+### Fed-batch hybrid correction
 
-Intervals where `is_post_feed` transitions from `FALSE` to `TRUE` are excluded from rate calculations. The apparent concentration change at that point reflects medium addition, not cellular activity. All other intervals are used normally; the mass-balance approach ($M = C \times V$) corrects for any remaining dilution in variable-volume runs.
+In **Lote alimentado** mode the engine applies a **two-phase strategy per Clone × Replicate**:
+
+1. **Before the first feed event** (`is_post_feed` is always `FALSE`): the culture behaves as a batch — concentration-based calculations are used because volume changes only reflect sampling, not dilution from feed addition.
+2. **From the first feed event onwards** (`is_post_feed` transitions to `TRUE`): the mass-balance approach is activated to correctly decouple feed dilution from cellular activity.
+
+Intervals where `is_post_feed` transitions from `FALSE` to `TRUE` (the actual feed addition point) are always excluded from rate calculations, as the apparent concentration change reflects medium addition rather than cellular metabolism.
 
 ---
 
@@ -175,14 +167,14 @@ Intervals where `is_post_feed` transitions from `FALSE` to `TRUE` are excluded f
 | | |
 |---|---|
 | **Zero installation** | Runs fully client-side via Pyodide — no Python, no pip, no server |
-| **20+ kinetic parameters** | μ, qGlc, qLac, qP, qGln, qGlu, yields, IVCD/ITVC, fluorescence kinetics |
-| **Two calculation scenarios** | Constant-volume (ΔC/ΔIVCD) or variable-volume (ΔM/ΔITVC) — auto-detected from the input data |
-| **4 plot families** | Scatter · Mean ± SD · Exponential phase bars · Correlations |
-| **Fed-batch aware** | Feed events excluded automatically from rate calculations |
+| **20+ kinetic parameters** | µ, qGlc, qLac, qP, qGln, qGlu, yields, IVCD/ITVC, fluorescence kinetics |
+| **Batch & fed-batch modes** | Concentration-based (Lote) or hybrid mass-balance (Lote alimentado) with automatic phase detection |
+| **4 interactive plot families** | Scatter · Mean ± SD · Exponential phase bars · Correlations |
 | **Configurable phase window** | Set exponential phase start and end independently |
 | **Custom correlations** | Build any pairwise plot on demand, segmented by clone and phase |
-| **Download ZIP** | All CSVs and PNGs packaged in one click |
-| **No data upload** | Everything runs locally in the browser — no data leaves your machine |
+| **PDF reports** | Full report (A4 landscape, one chart per page) or compact report (Letter portrait, 8 charts per page) with the Clonalyzer logo — ready to paste into a lab notebook |
+| **ZIP download** | All CSVs and PNGs packaged in one click |
+| **No data upload** | Everything runs locally in your browser — your experimental data never leaves your machine |
 
 ---
 
@@ -205,15 +197,34 @@ Intervals where `is_post_feed` transitions from `FALSE` to `TRUE` are excluded f
 | `Gln_mM` | Glutamine | mM |
 | `Glu_mM` | Glutamate | mM |
 
+Two CSV layouts are accepted:
+
+**With metadata row** *(default — keep "Skip first row" checked)*
+```
+Culture time (h),  Clone ID,  Biological replicate, ...   ← ignored
+t_hr,              Clone,     Rep,                  ...   ← column names
+0,                 Control,   1,                    ...   ← data
+```
+
+**Without metadata row** *(uncheck "Skip first row")*
+```
+t_hr,  Clone,  Rep,  ...   ← column names
+0,     Control,  1,  ...   ← data
+```
+
+> European decimal commas (`1,5`) are accepted and converted automatically.
+
 ### Optional columns
 
 If present, the corresponding features are enabled automatically.
 
 | Column | Description |
 |---|---|
-| `Vol_mL` | Culture volume (mL) — enables variable-volume mass-balance calculations |
+| `Vol_mL` | Culture volume (mL) — required for Lote alimentado mass-balance mode |
 | `GFP_mean` / `GFP_std` | GFP fluorescence intensity (A.U.) |
 | `TMRM_mean` / `TMRM_std` | TMRM fluorescence intensity (A.U.) |
+| `Bodipy_mean` / `Bodipy_std` | BODIPY fluorescence intensity (A.U.) |
+| `CellROX_mean` / `CellROX_std` | CellROX fluorescence intensity (A.U.) |
 
 ---
 
@@ -224,7 +235,7 @@ If present, the corresponding features are enabled automatically.
 ![Pyodide](https://img.shields.io/badge/Pyodide-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat-square&logo=pandas&logoColor=white)
 ![NumPy](https://img.shields.io/badge/NumPy-013243?style=flat-square&logo=numpy&logoColor=white)
-![Matplotlib](https://img.shields.io/badge/Matplotlib-11557C?style=flat-square&logo=python&logoColor=white)
+![Plotly](https://img.shields.io/badge/Plotly-3F4F75?style=flat-square&logo=plotly&logoColor=white)
 ![SciPy](https://img.shields.io/badge/SciPy-8CAAE6?style=flat-square&logo=scipy&logoColor=white)
 
 **Frontend**
@@ -233,10 +244,11 @@ If present, the corresponding features are enabled automatically.
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat-square&logo=css3&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
 
-**Packaging**
+**Packaging & export**
 
 ![JSZip](https://img.shields.io/badge/JSZip-555555?style=flat-square)
 ![FileSaver](https://img.shields.io/badge/FileSaver.js-555555?style=flat-square)
+![jsPDF](https://img.shields.io/badge/jsPDF-555555?style=flat-square)
 
 ---
 
@@ -244,9 +256,9 @@ If present, the corresponding features are enabled automatically.
 
 ```
 Clonalyzer-2/
-├── index.html          ← markup only
-├── style.css           ← all custom styles
-├── app.js              ← Pyodide init, UI logic, ZIP generation
+├── index.html          ← markup and UI
+├── style.css           ← Material Design 3 custom styles
+├── app.js              ← Pyodide init, UI logic, ZIP/PDF generation
 ├── clonalyzer.py       ← analysis pipeline (runs in-browser via Pyodide)
 └── Fig/                ← screenshot assets for this README
 ```
