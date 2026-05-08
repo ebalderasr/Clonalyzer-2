@@ -16,6 +16,7 @@ from scipy import stats
 # ── Constants ──────────────────────────────────────────────────────────────────
 H_PER_DAY    = 24.0
 PG_PER_G     = 1e12
+PG_PER_MG    = 1e9
 MMOL_TO_PMOL = 1e9
 X_RANGE      = (-10, 270)
 
@@ -478,7 +479,7 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
                 # [mmol] / [cells·h] × 10^9  pmol/mmol           → pmol/cell/h
                 qglc_pg = (M_Glc1 - M_Glc2) / delta_ITVC * PG_PER_G  * H_PER_DAY
                 qlac_pg = (M_Lac2 - M_Lac1) / delta_ITVC * PG_PER_G  * H_PER_DAY
-                qP_pg   = (M_rP2  - M_rP1 ) / delta_ITVC * 1e9       * H_PER_DAY
+                qP_pg   = (M_rP2  - M_rP1 ) / delta_ITVC * PG_PER_MG * H_PER_DAY
                 qgh     = (M_Gln1 - M_Gln2) / delta_ITVC * MMOL_TO_PMOL
                 qguh    = (M_Glu2 - M_Glu1) / delta_ITVC * MMOL_TO_PMOL
 
@@ -531,7 +532,7 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
                 # [mM]   / [cells/mL · h] × 1e-3 × 10^9  pmol/mmol        → pmol/cell/h
                 qglc_pg = dGlc / delta_IVCD * 1e-3 * PG_PER_G  * H_PER_DAY
                 qlac_pg = dLac / delta_IVCD * 1e-3 * PG_PER_G  * H_PER_DAY
-                qP_pg   = drP  / delta_IVCD * 1e-3 * 1e9       * H_PER_DAY
+                qP_pg   = drP  / delta_IVCD * 1e-3 * PG_PER_MG * H_PER_DAY
                 qgh     = dGln / delta_IVCD * 1e-3 * MMOL_TO_PMOL
                 qguh    = dGlu / delta_IVCD * 1e-3 * MMOL_TO_PMOL
 
@@ -799,9 +800,10 @@ def _scatter_data(df, clones, pal, fluor_set=None):
 
 
 def _lines_data(df, clones, pal, fluor_set=None):
-    """Mean ± SD line per clone, pre-feed rows only; grouped with section headers."""
+    """Mean ± SD line per clone (pre-feed only); post-feed rows overlaid as open-circle dots."""
     out = {}
-    pre = df[~df["is_post_feed"]]
+    pre  = df[~df[FEED_COL]]
+    post = df[df[FEED_COL]]
     for section_title, specs in TS_GROUPS:
       group = {}
       for col, ylabel, fname, ylim in specs:
@@ -816,31 +818,61 @@ def _lines_data(df, clones, pal, fluor_set=None):
         traces = []
         for c in clones:
             sub = s[s["Clone"] == c].sort_values("t_hr")
-            if sub.empty:
-                continue
-            traces.append({
-                "x":    _to_list(sub["t_hr"]),
-                "y":    _to_list(sub["mean"]),
-                "error_y": {
-                    "type":      "data",
-                    "array":     [_std0(v) for v in sub["std"].tolist()],
-                    "visible":   True,
-                    "thickness": 1.5,
-                    "width":     4,
-                },
-                "name": str(c),
-                "mode": "lines+markers",
-                "type": "scatter",
-                "line":         {"color": pal[c], "width": 1.8},
-                "marker":       {"color": pal[c], "size": 6},
-                "connectgaps":  True,
-                "hovertemplate": (
-                    f"<b>{c}</b><br>"
-                    f"t: %{{x}} h<br>"
-                    f"Mean: %{{y:.4g}}"
-                    "<extra></extra>"
-                ),
-            })
+            if not sub.empty:
+                traces.append({
+                    "x":    _to_list(sub["t_hr"]),
+                    "y":    _to_list(sub["mean"]),
+                    "error_y": {
+                        "type":      "data",
+                        "array":     [_std0(v) for v in sub["std"].tolist()],
+                        "visible":   True,
+                        "thickness": 1.5,
+                        "width":     4,
+                    },
+                    "name":        str(c),
+                    "mode":        "lines+markers",
+                    "type":        "scatter",
+                    "line":        {"color": pal[c], "width": 1.8},
+                    "marker":      {"color": pal[c], "size": 6},
+                    "connectgaps": True,
+                    "legendgroup": str(c),
+                    "showlegend":  True,
+                    "hovertemplate": (
+                        f"<b>{c}</b><br>"
+                        f"t: %{{x}} h<br>"
+                        f"Mean: %{{y:.4g}}"
+                        "<extra></extra>"
+                    ),
+                })
+
+            # Post-feed: individual replicate dots (open circles), same clone color.
+            # Skipped gracefully when post is empty (batch mode) or the column has
+            # no post-feed measurements (e.g. fluorescence not measured after feeds).
+            if not post.empty:
+                post_c = post[post["Clone"] == c].dropna(subset=[col])
+                if not post_c.empty:
+                    traces.append({
+                        "x":    _to_list(post_c["t_hr"]),
+                        "y":    _to_list(post_c[col]),
+                        "name": f"{c} (post-feed)",
+                        "mode": "markers",
+                        "type": "scatter",
+                        "marker": {
+                            "color":   "rgba(0,0,0,0)",
+                            "size":    8,
+                            "symbol":  "circle-open",
+                            "line":    {"color": pal[c], "width": 1.8},
+                        },
+                        "legendgroup": str(c),
+                        "showlegend":  False,
+                        "hovertemplate": (
+                            f"<b>{c} (post-feed)</b><br>"
+                            f"t: %{{x}} h<br>"
+                            f"{ylabel}: %{{y:.4g}}"
+                            "<extra></extra>"
+                        ),
+                    })
+
         if traces:
             group[fname] = {"traces": traces, "layout": _ts_layout(ylabel, ylim, "x unified")}
       if group:
@@ -1267,7 +1299,7 @@ def regenerate_plots(palette_json):
 
 def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
                  skip_first_row=True, progress_cb=None, use_volume=True,
-                 fluor_channels=""):
+                 fluor_channels=None):
     """
     Main function called from JavaScript via Pyodide.
 
@@ -1278,10 +1310,10 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
         variable-volume (mass-balance) scenario. When False, force the
         constant-volume (concentration-based) scenario regardless of
         whether Vol_mL is in the CSV.
-    fluor_channels : str
+    fluor_channels : str or None
         Comma-separated list of fluorescence channel labels to include,
-        e.g. "GFP,TMRM". Empty string or None means all channels with
-        data are included.
+        e.g. "GFP,TMRM". None (default) means all channels with data are
+        included. An empty string means no fluorescence channels are shown.
 
     Returns a dict with keys:
         info           – dataset metadata (includes 'scenario', 'active_fluor')
@@ -1295,11 +1327,13 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
         if progress_cb is not None:
             progress_cb(msg, pct)
 
-    # Parse user-selected fluorescence channels ("" or None → include all)
-    if fluor_channels:
-        fluor_set = {lbl.strip() for lbl in str(fluor_channels).split(",") if lbl.strip()}
-    else:
+    # Parse user-selected fluorescence channels.
+    # None → no filter, include all channels that have data in the CSV.
+    # ""  → user explicitly deselected all channels; show none.
+    if fluor_channels is None:
         fluor_set = None
+    else:
+        fluor_set = {lbl.strip() for lbl in str(fluor_channels).split(",") if lbl.strip()}
 
     cb("Loading and cleaning data…", 5)
     df = _load(csv_text, bool(skip_first_row))

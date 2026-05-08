@@ -190,7 +190,7 @@ async function handleFile(file) {
         if (elFluorTMRM?.checked)    fluorParts.push("TMRM");
         if (elFluorBODIPY?.checked)  fluorParts.push("BODIPY");
         if (elFluorCellROX?.checked) fluorParts.push("CellROX");
-        const fluorChannels = fluorParts.join(",");  // "" means none selected → Python includes all
+        const fluorChannels = fluorParts.length ? fluorParts.join(",") : "";
 
         pyodide.globals.set("_progress_cb",    (msg, pct) => setProcessProgress(msg, pct));
         pyodide.globals.set("_csv_text",        csvText);
@@ -792,7 +792,20 @@ function analyzeAnother() {
     // Destroy existing Plotly charts to free memory
     document.querySelectorAll(".js-plotly-plot").forEach(div => Plotly.purge(div));
     results = null;
+    selectedFile = null;
     elFileInput.value = "";
+
+    // Reset drop zone to default (no-file) state
+    elDropZone.querySelector(".dz-default-state").classList.remove("d-none");
+    elDropZone.querySelector(".dz-file-state").classList.add("d-none");
+    elDropZone.querySelector(".dz-filename").textContent = "";
+    elDropZone.classList.remove("dz-ready");
+
+    // Disable Analyze button and clear hint
+    elAnalyzeBtn.disabled = true;
+    elAnalyzeHint.textContent = "";
+    elAnalyzeHint.classList.remove("analyze-hint-ready");
+
     hide(elResultsSection);
     hide(document.getElementById("clone-colors-section"));
     document.getElementById("custom-corr-gallery").innerHTML = "";
