@@ -82,7 +82,7 @@ async function initPyodide() {
         setInitProgress("Loading Clonalyzer…", 80);
         setInitStep(2, "done");
         setInitStep(3, "active");
-        const resp = await fetch("clonalyzer.py");
+        const resp = await fetch("clonalyzer.py?v=" + Date.now());
         if (!resp.ok) throw new Error("Could not load clonalyzer.py");
         const code = await resp.text();
         await pyodide.runPythonAsync(code);
