@@ -417,7 +417,15 @@
 
       <!-- Plots -->
       <div class="md-card">
-        <h2 class="md-card-title mb-3">Plots</h2>
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h2 class="md-card-title mb-0">Plots</h2>
+          <button id="btn-toggle-postfeed" class="btn-md-outlined d-none"
+                  style="padding:5px 14px;font-size:13px;gap:5px;"
+                  onclick="togglePostFeed()">
+            <span class="material-icons" style="font-size:16px;vertical-align:middle;">visibility_off</span>
+            Hide post-feed
+          </button>
+        </div>
 
         <!-- Tab nav (MD3 Primary Tabs) -->
         <ul id="plot-tabs" class="nav nav-tabs" role="tablist">

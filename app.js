@@ -10,6 +10,7 @@
 let pyodide = null;
 let results = null;
 let selectedFile = null;
+let postFeedVisible = true;
 
 // ── DOM refs (populated after DOMContentLoaded) ────────────────────────────────
 let elInitBar, elInitMsg, elInitSection;
@@ -233,6 +234,13 @@ function setProcessProgress(msg, pct) {
 function displayResults(r) {
     renderInfoCards(r.info);
     renderColorPickers(r.info.clones, r.info.palette || {});
+
+    // Show post-feed toggle only for fed-batch datasets; reset state
+    postFeedVisible = true;
+    const pfBtn = document.getElementById("btn-toggle-postfeed");
+    pfBtn.innerHTML = `<span class="material-icons" style="font-size:16px;vertical-align:middle;">visibility_off</span> Hide post-feed`;
+    if (r.info.scenario === "variable_volume") pfBtn.classList.remove("d-none");
+    else pfBtn.classList.add("d-none");
     renderPlotTab("tab-scatter",      r.plots.scatter);
     renderPlotTab("tab-lines",        r.plots.lines);
     renderPlotTab("tab-bars",         r.plots.bars);
@@ -808,6 +816,8 @@ function analyzeAnother() {
 
     hide(elResultsSection);
     hide(document.getElementById("clone-colors-section"));
+    document.getElementById("btn-toggle-postfeed").classList.add("d-none");
+    postFeedVisible = true;
     document.getElementById("custom-corr-gallery").innerHTML = "";
     document.getElementById("multi-axis-gallery").innerHTML = "";
     show(elUploadSection);
@@ -1034,6 +1044,24 @@ function addMultiAxisPlot(clone, cols, spec) {
     gallery.prepend(div);
 
     Plotly.newPlot(plotDivId, spec.traces, spec.layout, PLOTLY_CONFIG);
+}
+
+// ── Post-feed visibility toggle ───────────────────────────────────────────────
+function togglePostFeed() {
+    postFeedVisible = !postFeedVisible;
+    const btn = document.getElementById("btn-toggle-postfeed");
+    btn.innerHTML = postFeedVisible
+        ? `<span class="material-icons" style="font-size:16px;vertical-align:middle;">visibility_off</span> Hide post-feed`
+        : `<span class="material-icons" style="font-size:16px;vertical-align:middle;">visibility</span> Show post-feed`;
+
+    document.querySelectorAll(".js-plotly-plot").forEach(div => {
+        if (!div.data) return;
+        const indices = div.data
+            .map((t, i) => (t.name || "").includes("(post-feed)") ? i : -1)
+            .filter(i => i >= 0);
+        if (indices.length > 0)
+            Plotly.restyle(div, { visible: postFeedVisible }, indices);
+    });
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
