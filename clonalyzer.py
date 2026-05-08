@@ -761,8 +761,10 @@ def _ts_layout(ylabel, ylim=None, hovermode="closest"):
 
 
 def _scatter_data(df, clones, pal, fluor_set=None):
-    """One scatter trace per clone, one chart per spec; grouped with section headers."""
+    """Pre-feed as solid circles, post-feed as open circles; one chart per spec."""
     out = {}
+    pre  = df[~df[FEED_COL]]
+    post = df[df[FEED_COL]]
     for section_title, specs in TS_GROUPS:
         group = {}
         for col, ylabel, fname, ylim in specs:
@@ -774,23 +776,52 @@ def _scatter_data(df, clones, pal, fluor_set=None):
                     continue
             traces = []
             for c in clones:
-                sub = df[df["Clone"] == c].dropna(subset=[col])
-                if sub.empty:
-                    continue
-                traces.append({
-                    "x":    _to_list(sub["t_hr"]),
-                    "y":    _to_list(sub[col]),
-                    "name": str(c),
-                    "mode": "markers",
-                    "type": "scatter",
-                    "marker": {"color": pal[c], "size": 8, "opacity": 0.8},
-                    "hovertemplate": (
-                        f"<b>{c}</b><br>"
-                        f"t: %{{x}} h<br>"
-                        f"{ylabel}: %{{y:.4g}}"
-                        "<extra></extra>"
-                    ),
-                })
+                # Pre-feed: solid filled circles
+                sub_pre = pre[pre["Clone"] == c].dropna(subset=[col])
+                if not sub_pre.empty:
+                    traces.append({
+                        "x":    _to_list(sub_pre["t_hr"]),
+                        "y":    _to_list(sub_pre[col]),
+                        "name": str(c),
+                        "mode": "markers",
+                        "type": "scatter",
+                        "marker": {"color": pal[c], "size": 8, "opacity": 0.8},
+                        "legendgroup": str(c),
+                        "showlegend":  True,
+                        "hovertemplate": (
+                            f"<b>{c}</b><br>"
+                            f"t: %{{x}} h<br>"
+                            f"{ylabel}: %{{y:.4g}}"
+                            "<extra></extra>"
+                        ),
+                    })
+
+                # Post-feed: open circles — skipped gracefully when absent
+                if not post.empty:
+                    sub_post = post[post["Clone"] == c].dropna(subset=[col])
+                    if not sub_post.empty:
+                        traces.append({
+                            "x":    _to_list(sub_post["t_hr"]),
+                            "y":    _to_list(sub_post[col]),
+                            "name": f"{c} (post-feed)",
+                            "mode": "markers",
+                            "type": "scatter",
+                            "marker": {
+                                "color":  "rgba(0,0,0,0)",
+                                "size":   8,
+                                "symbol": "circle-open",
+                                "line":   {"color": pal[c], "width": 1.8},
+                            },
+                            "legendgroup": str(c),
+                            "showlegend":  False,
+                            "hovertemplate": (
+                                f"<b>{c} (post-feed)</b><br>"
+                                f"t: %{{x}} h<br>"
+                                f"{ylabel}: %{{y:.4g}}"
+                                "<extra></extra>"
+                            ),
+                        })
+
             if traces:
                 group[fname] = {"traces": traces, "layout": _ts_layout(ylabel, ylim)}
         if group:
