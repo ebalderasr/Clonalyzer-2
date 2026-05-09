@@ -418,8 +418,9 @@ def _compute(df: pd.DataFrame, exp_start: float, exp_end: float,
             ip, ic = idx[k-1], idx[k]
             rp, rc = df.loc[ip], df.loc[ic]
 
-            # Skip the pre-feed → post-feed dilution interval (not cellular activity)
-            if (not rp[FEED_COL]) and rc[FEED_COL]:
+            # In fed-batch mode, skip the pre→post-feed dilution interval (not cellular activity).
+            # In batch mode the interval is left in; dt=0 at the same timepoint handles it.
+            if has_vol_global and (not rp[FEED_COL]) and rc[FEED_COL]:
                 continue
             dt = rc["t_hr"] - rp["t_hr"]
             if dt <= 0:
@@ -760,11 +761,16 @@ def _ts_layout(ylabel, ylim=None, hovermode="closest"):
     return layout
 
 
-def _scatter_data(df, clones, pal, fluor_set=None):
-    """Pre-feed as solid circles, post-feed as open circles; one chart per spec."""
+def _scatter_data(df, clones, pal, fluor_set=None, show_postfeed=True):
+    """Pre-feed as solid circles, post-feed as open circles; one chart per spec.
+
+    show_postfeed=False suppresses all post-feed circles (batch mode).
+    Even when True, fluorescence columns are excluded because their post-feed
+    values are forward-filled from the preceding pre-feed row, not real measurements.
+    """
     out = {}
     pre  = df[~df[FEED_COL]]
-    post = df[df[FEED_COL]]
+    post = df[df[FEED_COL]] if show_postfeed else pd.DataFrame()
     for section_title, specs in TS_GROUPS:
         group = {}
         for col, ylabel, fname, ylim in specs:
@@ -796,8 +802,11 @@ def _scatter_data(df, clones, pal, fluor_set=None):
                         ),
                     })
 
-                # Post-feed: open circles — skipped gracefully when absent
-                if not post.empty:
+                # Post-feed: open circles.
+                # Skipped when: batch mode (post is empty), column is a fluorescence
+                # channel (forward-filled — not a real post-feed measurement), or the
+                # clone has no post-feed rows for this column.
+                if not post.empty and col not in FLUOR_COL_TO_LABEL:
                     sub_post = post[post["Clone"] == c].dropna(subset=[col])
                     if not sub_post.empty:
                         traces.append({
@@ -830,11 +839,16 @@ def _scatter_data(df, clones, pal, fluor_set=None):
     return out
 
 
-def _lines_data(df, clones, pal, fluor_set=None):
-    """Mean ± SD line per clone (pre-feed only); post-feed rows overlaid as open-circle dots."""
+def _lines_data(df, clones, pal, fluor_set=None, show_postfeed=True):
+    """Mean ± SD line per clone (pre-feed only); post-feed rows overlaid as open-circle dots.
+
+    show_postfeed=False suppresses all post-feed overlays (batch mode).
+    Even when True, fluorescence columns are excluded because their post-feed
+    values are forward-filled from the preceding pre-feed row, not real measurements.
+    """
     out = {}
     pre  = df[~df[FEED_COL]]
-    post = df[df[FEED_COL]]
+    post = df[df[FEED_COL]] if show_postfeed else pd.DataFrame()
     for section_title, specs in TS_GROUPS:
       group = {}
       for col, ylabel, fname, ylim in specs:
@@ -877,9 +891,10 @@ def _lines_data(df, clones, pal, fluor_set=None):
                 })
 
             # Post-feed: individual replicate dots (open circles), same clone color.
-            # Skipped gracefully when post is empty (batch mode) or the column has
-            # no post-feed measurements (e.g. fluorescence not measured after feeds).
-            if not post.empty:
+            # Skipped when: batch mode (post is empty), column is a fluorescence
+            # channel (forward-filled — not a real post-feed measurement), or the
+            # clone has no post-feed rows for this column.
+            if not post.empty and col not in FLUOR_COL_TO_LABEL:
                 post_c = post[post["Clone"] == c].dropna(subset=[col])
                 if not post_c.empty:
                     traces.append({
@@ -1312,17 +1327,18 @@ def regenerate_plots(palette_json):
     if not _state:
         raise RuntimeError("No analysis loaded. Run run_analysis() first.")
     custom    = json.loads(str(palette_json))
-    df_kin    = _state["df"]
-    clones    = _state["clones"]
-    summary   = _state["summary"]
-    fluor_set = _state.get("fluor_set")
+    df_kin       = _state["df"]
+    clones       = _state["clones"]
+    summary      = _state["summary"]
+    fluor_set    = _state.get("fluor_set")
+    show_postfeed = _state.get("show_postfeed", True)
     # User colours take priority; fall back to defaults for unlisted clones
     default   = _palette(clones)
     pal       = {c: custom.get(str(c), default[c]) for c in clones}
     _state["pal"] = pal   # keep custom correlations in sync
     return {
-        "scatter":      _scatter_data(df_kin, clones, pal, fluor_set),
-        "lines":        _lines_data(df_kin, clones, pal, fluor_set),
+        "scatter":      _scatter_data(df_kin, clones, pal, fluor_set, show_postfeed),
+        "lines":        _lines_data(df_kin, clones, pal, fluor_set, show_postfeed),
         "bars":         _bars_data(summary, clones, pal, fluor_set),
         "correlations": _correlations_data(df_kin, clones, pal),
     }
@@ -1378,9 +1394,12 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
     clones = df_kin["Clone"].unique().tolist()
     pal    = _palette(clones)
 
+    show_postfeed = bool(use_volume)
+
     _state.clear()
     _state.update({"df": df_kin, "clones": clones, "pal": pal,
-                   "summary": summary, "fluor_set": fluor_set})
+                   "summary": summary, "fluor_set": fluor_set,
+                   "show_postfeed": show_postfeed})
 
     avail_cols = [
         [label, col] for label, col in CUSTOM_CORR_COLS
@@ -1388,10 +1407,10 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
     ]
 
     cb("Building scatter charts…", 35)
-    scatter = _scatter_data(df_kin, clones, pal, fluor_set)
+    scatter = _scatter_data(df_kin, clones, pal, fluor_set, show_postfeed)
 
     cb("Building line charts…", 52)
-    lines   = _lines_data(df_kin, clones, pal, fluor_set)
+    lines   = _lines_data(df_kin, clones, pal, fluor_set, show_postfeed)
 
     cb("Building bar charts…", 68)
     bars    = _bars_data(summary, clones, pal, fluor_set)
@@ -1401,11 +1420,14 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
 
     cb("Done!", 100)
 
+    has_any_postfeed = bool((df_kin[FEED_COL] == True).any())
     if bool(use_volume) and VOL_COL in df_kin.columns:
-        has_any_feed = (df_kin[FEED_COL] == True).any()
-        scenario = SCENARIO_VAR if has_any_feed else SCENARIO_CONST
+        scenario = SCENARIO_VAR if has_any_postfeed else SCENARIO_CONST
     else:
         scenario = SCENARIO_CONST
+
+    batch_postfeed_warning = (not bool(use_volume)) and has_any_postfeed
+    n_postfeed_rows = int((df_kin[FEED_COL] == True).sum()) if batch_postfeed_warning else 0
 
     # Channels that are both enabled by the user AND have data in the CSV
     active_fluor = [lbl for _, _, lbl in _active_fluor(df_kin, fluor_set)]
@@ -1425,6 +1447,8 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
             "active_fluor":  active_fluor,   # channels with data
             "enabled_fluor": enabled_fluor,  # channels enabled in UI
             "scenario":      scenario,
+            "batch_postfeed_warning": batch_postfeed_warning,
+            "n_postfeed_rows": n_postfeed_rows,
         },
         "avail_cols":    avail_cols,
         "processed_csv": df_kin.to_csv(index=False),

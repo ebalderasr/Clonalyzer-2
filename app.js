@@ -235,12 +235,29 @@ function displayResults(r) {
     renderInfoCards(r.info);
     renderColorPickers(r.info.clones, r.info.palette || {});
 
-    // Show post-feed toggle only for fed-batch datasets; reset state
+    // Show/hide batch + post-feed warning
+    const batchWarn     = document.getElementById("batch-postfeed-warning");
+    const batchWarnText = document.getElementById("batch-postfeed-warning-text");
+    if (r.info.batch_postfeed_warning) {
+        const n = r.info.n_postfeed_rows || 0;
+        batchWarnText.textContent =
+            `Se detectaron ${n} fila${n !== 1 ? "s" : ""} con is_post_feed = TRUE en el CSV, ` +
+            `pero el análisis se ejecutó en modo Batch. Las tasas se calcularon usando ` +
+            `concentraciones, sin corregir el efecto de dilución del alimento.`;
+        batchWarn?.classList.remove("d-none");
+    } else {
+        batchWarn?.classList.add("d-none");
+    }
+
+    // Show post-feed toggle for fed-batch datasets OR batch datasets with post-feed rows
     postFeedVisible = true;
     const pfBtn = document.getElementById("btn-toggle-postfeed");
     pfBtn.innerHTML = `<span class="material-icons" style="font-size:16px;vertical-align:middle;">visibility_off</span> Hide post-feed`;
-    if (r.info.scenario === "variable_volume") pfBtn.classList.remove("d-none");
-    else pfBtn.classList.add("d-none");
+    if (r.info.scenario === "variable_volume" || r.info.batch_postfeed_warning) {
+        pfBtn.classList.remove("d-none");
+    } else {
+        pfBtn.classList.add("d-none");
+    }
     renderPlotTab("tab-scatter",      r.plots.scatter);
     renderPlotTab("tab-lines",        r.plots.lines);
     renderPlotTab("tab-bars",         r.plots.bars);
@@ -817,6 +834,7 @@ function analyzeAnother() {
     hide(elResultsSection);
     hide(document.getElementById("clone-colors-section"));
     document.getElementById("btn-toggle-postfeed").classList.add("d-none");
+    document.getElementById("batch-postfeed-warning")?.classList.add("d-none");
     postFeedVisible = true;
     document.getElementById("custom-corr-gallery").innerHTML = "";
     document.getElementById("multi-axis-gallery").innerHTML = "";
