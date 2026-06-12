@@ -138,6 +138,9 @@
               <span class="csv-legend-swatch csv-swatch-req"></span>Required columns
             </span>
             <span class="csv-legend-item">
+              <span class="csv-legend-swatch csv-swatch-opt"></span>Optional process variables
+            </span>
+            <span class="csv-legend-item">
               <span class="csv-legend-swatch csv-swatch-opt"></span>Optional columns (flow cytometry)
             </span>
             <span class="csv-legend-item">
@@ -163,6 +166,10 @@
                   <th class="csv-th-req">Lac_g_L</th>
                   <th class="csv-th-req">Gln_mM</th>
                   <th class="csv-th-req">Glu_mM</th>
+                  <th class="csv-th-opt">OsM</th>
+                  <th class="csv-th-opt">pH</th>
+                  <th class="csv-th-opt">O2</th>
+                  <th class="csv-th-opt">CO2</th>
                   <th class="csv-th-req">Vol_mL</th>
                   <th class="csv-th-opt">GFP_mean</th>
                   <th class="csv-th-opt">GFP_std</th>
@@ -180,7 +187,8 @@
                   <td class="csv-td-rownum">1</td>
                   <td>Time (h)</td><td>Clone</td><td>Replicate</td><td>Post-feed?</td>
                   <td>VCD (cells/mL)</td><td>DCD (cells/mL)</td><td>Viability %</td><td>Product (mg/L)</td>
-                  <td>Glucose (g/L)</td><td>Lactate (g/L)</td><td>Glutamine (mM)</td><td>Glutamate (mM)</td><td>Volume (mL)</td>
+                  <td>Glucose (g/L)</td><td>Lactate (g/L)</td><td>Glutamine (mM)</td><td>Glutamate (mM)</td>
+                  <td>Osmolarity (mOsm/kg)</td><td>pH</td><td>O2</td><td>CO2</td><td>Volume (mL)</td>
                   <td class="csv-td-opt">GFP mean</td><td class="csv-td-opt">GFP SD</td>
                   <td class="csv-td-opt">TMRM mean</td><td class="csv-td-opt">TMRM SD</td>
                   <td class="csv-td-opt">BODIPY mean</td><td class="csv-td-opt">BODIPY SD</td>
@@ -191,7 +199,8 @@
                   <td class="csv-td-rownum">2</td>
                   <td>t_hr</td><td>Clone</td><td>Rep</td><td>is_post_feed</td>
                   <td>VCD</td><td>DCD</td><td>Viab_pct</td><td>rP_mg_L</td>
-                  <td>Glc_g_L</td><td>Lac_g_L</td><td>Gln_mM</td><td>Glu_mM</td><td>Vol_mL</td>
+                  <td>Glc_g_L</td><td>Lac_g_L</td><td>Gln_mM</td><td>Glu_mM</td>
+                  <td>OsM</td><td>pH</td><td>O2</td><td>CO2</td><td>Vol_mL</td>
                   <td class="csv-td-opt">GFP_mean</td><td class="csv-td-opt">GFP_std</td>
                   <td class="csv-td-opt">TMRM_mean</td><td class="csv-td-opt">TMRM_std</td>
                   <td class="csv-td-opt">Bodipy_mean</td><td class="csv-td-opt">Bodipy_std</td>
@@ -202,7 +211,8 @@
                   <td class="csv-td-rownum">3</td>
                   <td>0</td><td>CHO-K1</td><td>1</td><td>FALSE</td>
                   <td>5.0E5</td><td>1.0E4</td><td>98.2</td><td>0</td>
-                  <td>4.50</td><td>0.20</td><td>4.0</td><td>0.5</td><td>50</td>
+                  <td>4.50</td><td>0.20</td><td>4.0</td><td>0.5</td>
+                  <td>285</td><td>7.15</td><td>50</td><td>6</td><td>50</td>
                   <td class="csv-td-opt">1250</td><td class="csv-td-opt">120</td>
                   <td class="csv-td-opt">3400</td><td class="csv-td-opt">280</td>
                   <td class="csv-td-opt">890</td><td class="csv-td-opt">95</td>
@@ -212,7 +222,8 @@
                   <td class="csv-td-rownum">4</td>
                   <td>24</td><td>CHO-K1</td><td>1</td><td>TRUE</td>
                   <td>2.1E6</td><td>5.0E4</td><td>97.1</td><td>25</td>
-                  <td>3.20</td><td>0.85</td><td>3.1</td><td>1.2</td><td>55</td>
+                  <td>3.20</td><td>0.85</td><td>3.1</td><td>1.2</td>
+                  <td>290</td><td>7.20</td><td>45</td><td>7</td><td>55</td>
                   <td class="csv-td-opt">3400</td><td class="csv-td-opt">280</td>
                   <td class="csv-td-opt">5200</td><td class="csv-td-opt">410</td>
                   <td class="csv-td-opt">1450</td><td class="csv-td-opt">130</td>
@@ -220,6 +231,7 @@
                 </tr>
                 <tr class="csv-tr-more">
                   <td class="csv-td-rownum">⋮</td>
+                  <td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td>
                   <td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td>
                   <td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td>
                   <td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td>

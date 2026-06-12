@@ -53,6 +53,8 @@ OPTIONAL_COLS = [
     "Bodipy_mean","Bodipy_std","CellROX_mean","CellROX_std",
 ]
 
+PROCESS_COLS = ["OsM", "pH", "O2", "CO2"]
+
 SCENARIO_VAR   = "variable_volume"   # Vol_mL present
 SCENARIO_CONST = "constant_volume"   # Vol_mL absent
 
@@ -107,6 +109,12 @@ TS_GROUPS = [
         ("Glu_mM",      "Glutamate (mM)",           "07_Glu",       None),
         ("rP_mg_L",     "rP Titer (mg/L)",          "08_Product",   None),
         (VOL_COL,       "Volume (mL)",              "00b_Vol",      None),
+    ]),
+    ("Process Variables", [
+        ("OsM",         "OsM (mOsm/kg)",           "00c_Osmolarity", None),
+        ("pH",          "pH",                      "00d_pH",         None),
+        ("O2",          "O2",                      "00e_O2",         None),
+        ("CO2",         "CO2",                     "00f_CO2",        None),
     ]),
     ("Kinetic Parameters", [
         (MU,            "μ (1/h)",                  "03_Mu",        None),
@@ -242,6 +250,10 @@ CUSTOM_CORR_COLS = [
     ("Glutamine (mM)",           "Gln_mM"),
     ("Glutamate (mM)",           "Glu_mM"),
     ("rP Titer (mg/L)",          "rP_mg_L"),
+    ("OsM (mOsm/kg)",            "OsM"),
+    ("pH",                       "pH"),
+    ("O2",                       "O2"),
+    ("CO2",                      "CO2"),
     ("qGlc (pmol/cell/day)",     QGLC_PMOL),
     ("qLac (pmol/cell/day)",     QLAC_PMOL),
     ("qGln (pmol/cell/day)",     QGLN_D),
@@ -329,10 +341,11 @@ def _load(csv_text: str, skip_first_row: bool = True) -> pd.DataFrame:
     df[FEED_COL] = df[FEED_COL].astype(bool)
 
     # ── Numeric coercion ──────────────────────────────────────────────────────
-    numeric = ["t_hr","Rep","VCD","DCD","Viab_pct","rP_mg_L",
-               "Glc_g_L","Lac_g_L","Gln_mM","Glu_mM"] + \
-              ([VOL_COL] if VOL_COL in df.columns else []) + \
-              [c for c in OPTIONAL_COLS if c in df.columns]
+    numeric = (["t_hr","Rep","VCD","DCD","Viab_pct","rP_mg_L",
+                "Glc_g_L","Lac_g_L","Gln_mM","Glu_mM"] +
+               [c for c in PROCESS_COLS if c in df.columns] +
+               ([VOL_COL] if VOL_COL in df.columns else []) +
+               [c for c in OPTIONAL_COLS if c in df.columns])
     for col in numeric:
         if df[col].dtype == object:
             df[col] = df[col].str.replace(",", ".", regex=False)

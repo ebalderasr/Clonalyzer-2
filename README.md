@@ -210,9 +210,14 @@ t_hr,  Clone,  Rep,  ...   ← column names
 ### Optional columns
 
 If present, the corresponding features are enabled automatically.
+Process variables (`OsM`, `pH`, `O2`, `CO2`) are also available in the time-series, custom-correlation, and multi-axis views.
 
 | Column | Description |
 |---|---|
+| `OsM` | Osmolarity (mOsm/kg) |
+| `pH` | pH value |
+| `O2` | Oxygen value as exported by the instrument |
+| `CO2` | CO2 value as exported by the instrument |
 | `Vol_mL` | Culture volume (mL) — required for Lote alimentado mass-balance mode |
 | `GFP_mean` / `GFP_std` | GFP fluorescence intensity (A.U.) |
 | `TMRM_mean` / `TMRM_std` | TMRM fluorescence intensity (A.U.) |
