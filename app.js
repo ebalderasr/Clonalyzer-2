@@ -235,15 +235,31 @@ function displayResults(r) {
     renderInfoCards(r.info);
     renderColorPickers(r.info.clones, r.info.palette || {});
 
-    // Show/hide batch + post-feed warning
+    // Show/hide mode warnings
     const batchWarn     = document.getElementById("batch-postfeed-warning");
+    const batchWarnTitle = document.getElementById("batch-postfeed-warning-title");
     const batchWarnText = document.getElementById("batch-postfeed-warning-text");
-    if (r.info.batch_postfeed_warning) {
+    const batchWarnNote = document.getElementById("batch-postfeed-warning-note");
+    const modeWarnings = r.info.mode_warnings || [];
+    if (modeWarnings.length > 0) {
+        batchWarnTitle.textContent = "Fed-batch solicitado, pero no se pudo aplicar la corrección";
+        batchWarnText.textContent = modeWarnings.join(" ");
+        batchWarnNote.innerHTML =
+            `Se entregaron resultados en modo <strong>Batch</strong>. ` +
+            `Agrega <code>Vol_mL</code> y una columna <code>is_post_feed</code> válida ` +
+            `para habilitar la corrección por alimentación.`;
+        batchWarn?.classList.remove("d-none");
+    } else if (r.info.batch_postfeed_warning) {
         const n = r.info.n_postfeed_rows || 0;
+        batchWarnTitle.textContent = "Datos post-alimentación detectados en modo Batch";
         batchWarnText.textContent =
             `Se detectaron ${n} fila${n !== 1 ? "s" : ""} con is_post_feed = TRUE en el CSV, ` +
             `pero el análisis se ejecutó en modo Batch. Las tasas se calcularon usando ` +
             `concentraciones, sin corregir el efecto de dilución del alimento.`;
+        batchWarnNote.innerHTML =
+            `Para corregir el efecto de dilución del alimento considera usar el modo ` +
+            `<strong>Fed-batch</strong>, que aplica balance de masas a partir del primer ` +
+            `evento de alimentación.`;
         batchWarn?.classList.remove("d-none");
     } else {
         batchWarn?.classList.add("d-none");
@@ -277,16 +293,25 @@ function displayResults(r) {
 // ── Clone color pickers ────────────────────────────────────────────────────────
 function renderColorPickers(clones, palette) {
     const container = document.getElementById("clone-color-pickers");
-    container.innerHTML = clones.map((c, i) => `
-        <div class="clone-color-chip">
-            <input type="color"
-                   id="clone-color-${i}"
-                   value="${palette[c] || "#000000"}"
-                   class="clone-color-input"
-                   title="Color for ${c}" />
-            <span class="clone-name">${c}</span>
-        </div>
-    `).join("");
+    container.replaceChildren();
+    clones.forEach((c, i) => {
+        const chip = document.createElement("div");
+        chip.className = "clone-color-chip";
+
+        const input = document.createElement("input");
+        input.type = "color";
+        input.id = `clone-color-${i}`;
+        input.value = palette[c] || "#000000";
+        input.className = "clone-color-input";
+        input.title = `Color for ${c}`;
+
+        const label = document.createElement("span");
+        label.className = "clone-name";
+        label.textContent = c;
+
+        chip.append(input, label);
+        container.appendChild(chip);
+    });
     show(document.getElementById("clone-colors-section"));
 }
 
@@ -336,50 +361,57 @@ function renderInfoCards(info) {
     const el = document.getElementById("info-cards");
     const activeSet    = new Set(info.active_fluor  || []);
     const enabledFluor = info.enabled_fluor || [];
-    let cytoTag = "";
-    if (enabledFluor.length === 0) {
-        cytoTag = `<span class="badge bg-secondary ms-2">No fluorescence</span>`;
-    } else {
-        cytoTag = enabledFluor.map(ch =>
-            activeSet.has(ch)
-                ? `<span class="badge bg-success ms-1">${ch} ✓</span>`
-                : `<span class="badge bg-light border ms-1 text-muted">${ch} –</span>`
-        ).join("");
-    }
-    const scenarioTag = info.scenario === "variable_volume"
-        ? `<span class="badge bg-info text-dark ms-2">Variable volume</span>`
-        : `<span class="badge bg-warning text-dark ms-2">Constant volume</span>`;
+    el.replaceChildren();
 
-    el.innerHTML = `
-        <div class="col-6 col-md-3">
-            <div class="info-stat-card">
-                <div class="info-stat-value">${info.n_clones}</div>
-                <div class="info-stat-label">Clones</div>
-                <div class="info-stat-detail">${info.clones.join(" · ")}</div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="info-stat-card">
-                <div class="info-stat-value">${info.n_reps}</div>
-                <div class="info-stat-label">Replicates</div>
-                <div class="info-stat-detail">&nbsp;</div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="info-stat-card">
-                <div class="info-stat-value">${info.n_timepoints}</div>
-                <div class="info-stat-label">Timepoints</div>
-                <div class="info-stat-detail">&nbsp;</div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="info-stat-card">
-                <div class="info-stat-value">${info.n_rows}</div>
-                <div class="info-stat-label">Total rows</div>
-                <div class="info-stat-detail">${scenarioTag}<br>${cytoTag}</div>
-            </div>
-        </div>
-    `;
+    const makeCard = (value, label, detailNode) => {
+        const col = document.createElement("div");
+        col.className = "col-6 col-md-3";
+        const card = document.createElement("div");
+        card.className = "info-stat-card";
+        const valueEl = document.createElement("div");
+        valueEl.className = "info-stat-value";
+        valueEl.textContent = String(value);
+        const labelEl = document.createElement("div");
+        labelEl.className = "info-stat-label";
+        labelEl.textContent = label;
+        const detailEl = document.createElement("div");
+        detailEl.className = "info-stat-detail";
+        if (detailNode) {
+            detailEl.appendChild(detailNode);
+        } else {
+            detailEl.innerHTML = "&nbsp;";
+        }
+        card.append(valueEl, labelEl, detailEl);
+        col.appendChild(card);
+        return col;
+    };
+
+    const clonesDetail = document.createElement("span");
+    clonesDetail.textContent = (info.clones || []).join(" · ");
+
+    const scenarioDetail = document.createElement("div");
+    scenarioDetail.appendChild(makeBadge(
+        info.scenario === "variable_volume" ? "bg-info text-dark ms-2" : "bg-warning text-dark ms-2",
+        info.scenario === "variable_volume" ? "Variable volume" : "Constant volume"
+    ));
+    scenarioDetail.appendChild(document.createElement("br"));
+    if (enabledFluor.length === 0) {
+        scenarioDetail.appendChild(makeBadge("bg-secondary ms-2", "No fluorescence"));
+    } else {
+        enabledFluor.forEach(ch => {
+            scenarioDetail.appendChild(makeBadge(
+                activeSet.has(ch) ? "bg-success ms-1" : "bg-light border ms-1 text-muted",
+                activeSet.has(ch) ? `${ch} ✓` : `${ch} –`
+            ));
+        });
+    }
+
+    el.append(
+        makeCard(info.n_clones, "Clones", clonesDetail),
+        makeCard(info.n_reps, "Replicates"),
+        makeCard(info.n_timepoints, "Timepoints"),
+        makeCard(info.n_rows, "Total rows", scenarioDetail),
+    );
 }
 
 /**
@@ -1043,22 +1075,33 @@ function addMultiAxisPlot(clone, cols, spec) {
     const plotDivId = `plot-${id}`;
     const cloneLabel = clone === "__all__" ? "All clones" : clone;
 
-    const labels = (spec.traces || []).map(t => t.name).join(" · ");
     const div = document.createElement("div");
     div.className = "col-12 mb-4";
     div.id = id;
-    div.innerHTML = `
-        <div class="card shadow-sm h-100">
-            <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center">
-                <span class="small text-muted fw-semibold">${cloneLabel} · ${labels}</span>
-                <button class="btn btn-sm btn-outline-danger py-0 px-2 lh-1"
-                        onclick="Plotly.purge('${plotDivId}'); document.getElementById('${id}').remove()"
-                        title="Remove">✕</button>
-            </div>
-            <div class="card-body p-1">
-                <div id="${plotDivId}" class="plotly-chart"></div>
-            </div>
-        </div>`;
+    const card = document.createElement("div");
+    card.className = "card shadow-sm h-100";
+    const header = document.createElement("div");
+    header.className = "card-header py-2 px-3 d-flex justify-content-between align-items-center";
+    const title = document.createElement("span");
+    title.className = "small text-muted fw-semibold";
+    title.textContent = `${cloneLabel} · ${(spec.traces || []).map(t => t.name).join(" · ")}`;
+    const btn = document.createElement("button");
+    btn.className = "btn btn-sm btn-outline-danger py-0 px-2 lh-1";
+    btn.title = "Remove";
+    btn.textContent = "✕";
+    btn.addEventListener("click", () => {
+        Plotly.purge(plotDivId);
+        document.getElementById(id)?.remove();
+    });
+    header.append(title, btn);
+    const body = document.createElement("div");
+    body.className = "card-body p-1";
+    const plotDiv = document.createElement("div");
+    plotDiv.id = plotDivId;
+    plotDiv.className = "plotly-chart";
+    body.appendChild(plotDiv);
+    card.append(header, body);
+    div.appendChild(card);
     gallery.prepend(div);
 
     Plotly.newPlot(plotDivId, spec.traces, spec.layout, PLOTLY_CONFIG);
@@ -1086,6 +1129,13 @@ function togglePostFeed() {
 function show(el) { el?.classList.remove("d-none"); }
 function hide(el) { el?.classList.add("d-none"); }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function makeBadge(className, text) {
+    const badge = document.createElement("span");
+    badge.className = `badge ${className}`;
+    badge.textContent = text;
+    return badge;
+}
 
 // ── MathJax re-render when Methods modal opens ─────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {

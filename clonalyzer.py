@@ -318,6 +318,7 @@ def _std0(x):
 def _load(csv_text: str, skip_first_row: bool = True) -> pd.DataFrame:
     header_row = 1 if skip_first_row else 0
     df = pd.read_csv(io.StringIO(csv_text), header=header_row)
+    original_cols = set(df.columns)
 
     # ── Required columns ──────────────────────────────────────────────────────
     missing = [c for c in REQUIRED_COLS if c not in df.columns]
@@ -351,13 +352,11 @@ def _load(csv_text: str, skip_first_row: bool = True) -> pd.DataFrame:
             df[col] = df[col].str.replace(",", ".", regex=False)
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # ── Cytometry forward-fill ────────────────────────────────────────────────
-    cyto = [c for c in OPTIONAL_COLS if c in df.columns]
-    if cyto:
-        df = df.sort_values(["Clone","Rep","t_hr"]).reset_index(drop=True)
-        df[cyto] = df.groupby(["Clone","Rep"])[cyto].transform(lambda s: s.ffill())
-
-    return df.sort_values(["Clone","Rep","t_hr"]).reset_index(drop=True)
+    df = df.sort_values(["Clone","Rep","t_hr"]).reset_index(drop=True)
+    df.attrs["has_vol_col"] = VOL_COL in original_cols
+    df.attrs["has_feed_col"] = FEED_COL in original_cols
+    df.attrs["has_true_postfeed"] = bool((df[FEED_COL] == True).any())
+    return df
 
 
 # ── Kinetics ───────────────────────────────────────────────────────────────────
@@ -1398,16 +1397,41 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
     cb("Loading and cleaning data…", 5)
     df = _load(csv_text, bool(skip_first_row))
 
+    requested_mode = "fedbatch" if bool(use_volume) else "batch"
+    mode_warnings = []
+    has_vol_col = bool(df.attrs.get("has_vol_col", VOL_COL in df.columns))
+    has_feed_col = bool(df.attrs.get("has_feed_col", FEED_COL in df.columns))
+    has_true_postfeed = bool(df.attrs.get("has_true_postfeed", False))
+    use_fedbatch_effective = bool(use_volume) and has_vol_col and has_feed_col and has_true_postfeed
+
+    if bool(use_volume):
+        missing_reqs = []
+        if not has_vol_col:
+            missing_reqs.append(VOL_COL)
+        if not has_feed_col:
+            missing_reqs.append(FEED_COL)
+        if missing_reqs:
+            joined = ", ".join(missing_reqs)
+            mode_warnings.append(
+                f"Fed-batch was requested, but the CSV is missing required column(s): {joined}. "
+                "Results were generated using batch-style concentration-based calculations."
+            )
+        elif not has_true_postfeed:
+            mode_warnings.append(
+                "Fed-batch was requested, but no rows were marked with is_post_feed = TRUE. "
+                "Results were generated using batch-style concentration-based calculations."
+            )
+
     cb("Computing kinetics…", 20)
     df_kin  = _compute(df, float(exp_phase_start), float(exp_phase_end),
-                       use_volume=bool(use_volume), fluor_set=fluor_set)
+                       use_volume=use_fedbatch_effective, fluor_set=fluor_set)
     df_kin  = _add_carbon_metrics(df_kin)
     summary = _summarise(df_kin, fluor_set=fluor_set)
 
     clones = df_kin["Clone"].unique().tolist()
     pal    = _palette(clones)
 
-    show_postfeed = bool(use_volume)
+    show_postfeed = use_fedbatch_effective
 
     _state.clear()
     _state.update({"df": df_kin, "clones": clones, "pal": pal,
@@ -1434,7 +1458,7 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
     cb("Done!", 100)
 
     has_any_postfeed = bool((df_kin[FEED_COL] == True).any())
-    if bool(use_volume) and VOL_COL in df_kin.columns:
+    if use_fedbatch_effective and VOL_COL in df_kin.columns:
         scenario = SCENARIO_VAR if has_any_postfeed else SCENARIO_CONST
     else:
         scenario = SCENARIO_CONST
@@ -1459,6 +1483,9 @@ def run_analysis(csv_text, exp_phase_start=0.0, exp_phase_end=96.0,
             "palette":       {str(c): pal[c] for c in clones},
             "active_fluor":  active_fluor,   # channels with data
             "enabled_fluor": enabled_fluor,  # channels enabled in UI
+            "requested_mode": requested_mode,
+            "effective_mode": "fedbatch" if use_fedbatch_effective else "batch",
+            "mode_warnings": mode_warnings,
             "scenario":      scenario,
             "batch_postfeed_warning": batch_postfeed_warning,
             "n_postfeed_rows": n_postfeed_rows,
